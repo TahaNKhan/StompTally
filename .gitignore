@@ -1,5 +1,6 @@
 .DS_Store
 .env
+.env.*
 /node_modules/
 *.tsbuildinfo
 
@@ -16,6 +17,7 @@ worker-configuration.d.ts
 !.dev.vars.example
 !.env.example
 
-# Misc
+# Logs and local browser-test artifacts
 *.log
-.DS_Store
+/playwright-report/
+/test-results/

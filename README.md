@@ -35,8 +35,10 @@ scripts/smoke.sh        end-to-end HTTP smoke test against `npm run dev`
 
 ## Develop
 
+Requires Node 22.13+ (Node 22 is pinned in `.nvmrc` and CI). Use `nvm use` if you have nvm installed.
+
 ```bash
-npm install
+npm ci
 cp .dev.vars.example .dev.vars          # local-only secrets, git-ignored
 npx wrangler d1 migrations apply stomp-tally --local
 npm run dev                              # http://localhost:5173
@@ -55,9 +57,14 @@ npm run build
 End-to-end smoke test on a throwaway local database (needs Node 22+):
 
 ```bash
-P=$(mktemp -d); npx wrangler d1 migrations apply stomp-tally --local --persist-to $P
-STOMP_PERSIST=$P npm run dev -- --port 5173 --strictPort > /tmp/stomp-dev.log 2>&1 &
-LOG=/tmp/stomp-dev.log bash scripts/smoke.sh
+P=$(mktemp -d); LOG=$P/dev.log
+npx wrangler d1 migrations apply stomp-tally --local --persist-to "$P"
+STOMP_PERSIST=$P npm run dev -- --port 5173 --strictPort > "$LOG" 2>&1 &
+DEV_PID=$!
+# Wait for the dev server's "Local:" message before running these:
+LOG=$LOG bash scripts/smoke.sh
+LOG=$LOG node scripts/pending-browser.mjs # requires Chromium
+kill "$DEV_PID"
 ```
 
 ## Deploy
