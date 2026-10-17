@@ -2,6 +2,7 @@ import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "reac
 import { useEffect, useRef, useState } from "react";
 import type { Route } from "./+types/today";
 import { Avatar, ErrorNote, fmtSteps, money, Notice, timeAgo } from "../components/ui";
+import { PendingButton } from "../components/pending";
 import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
 import { cancelSkip, claimSkip, recordSteps } from "../lib/service";
 import { formatDay } from "../lib/dates";
@@ -98,7 +99,7 @@ function Board({ day, me, threshold, penalty, skips, skipsUsed, now, label, live
             <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2">
               <input type="hidden" name="date" value={day.date} />
               <span className="text-sm text-sky">🛡️ Skip claimed. You're safe if you end up last.</span>
-              <button name="intent" value="unskip" className="btn-ghost !py-1.5 text-xs">Undo</button>
+              <PendingButton name="intent" value="unskip" className="btn-ghost !py-1.5 text-xs" busy={fetcher.state !== "idle"} pendingLabel="Undoing…">Undo</PendingButton>
             </fetcher.Form>
           ) : (
             <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2">
@@ -106,17 +107,19 @@ function Board({ day, me, threshold, penalty, skips, skipsUsed, now, label, live
               <span className="text-sm text-muted">
                 {losers.has(me) ? "You're last right now." : "Rough day?"} {skips - myUsed} skip{skips - myUsed === 1 ? "" : "s"} left this month.
               </span>
-              <button
+              <PendingButton
                 name="intent"
                 value="skip"
-                disabled={myUsed >= skips || fetcher.state !== "idle"}
+                busy={fetcher.state !== "idle"}
+                pendingLabel="Claiming…"
+                disabled={myUsed >= skips}
                 className="btn-ghost shrink-0 whitespace-nowrap !py-1.5 text-xs"
                 onClick={(e) => {
                   if (!confirm(`Use a skip for ${formatDay(day.date)}? It only counts if you'd have paid.`)) e.preventDefault();
                 }}
               >
                 🛡️ Use skip
-              </button>
+              </PendingButton>
             </fetcher.Form>
           )}
           <ErrorNote error={err} />
@@ -213,9 +216,9 @@ function LogSteps({ today, yesterday, myToday, myYesterday }: { today: string; y
           placeholder={current != null ? String(current) : "e.g. 11240"}
           className="input font-display text-lg tabular-nums"
         />
-        <button className="btn-primary shrink-0 !px-5" disabled={f.state !== "idle"}>
-          {f.state !== "idle" ? "Saving…" : current != null ? "Update" : "Save"}
-        </button>
+        <PendingButton className="btn-primary shrink-0 !px-5" busy={f.state !== "idle"}>
+          {current != null ? "Update" : "Save"}
+        </PendingButton>
       </f.Form>
       {saved && <p className="mt-2 text-xs text-lime">✓ Saved</p>}
       <ErrorNote error={f.data && "error" in f.data ? f.data.error : null} />

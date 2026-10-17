@@ -1,6 +1,7 @@
 import { redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/group";
 import { Avatar, ErrorNote, Notice } from "../components/ui";
+import { PendingButton } from "../components/pending";
 import { db, formAction, memberOr, origin, rateLimit, requireMember, sid } from "../lib/http.server";
 import { createInvite, recordSteps, removeMember, revokeInvite, updateGroup } from "../lib/service";
 import { inviteEmail, sendMail } from "../lib/mail.server";
@@ -68,7 +69,7 @@ export default function GroupPage() {
         <inv.Form method="post" className="mt-4 flex gap-2" onSubmit={(e) => setTimeout(() => (e.target as HTMLFormElement).reset(), 0)}>
           <input type="hidden" name="intent" value="invite" />
           <input name="email" type="email" required placeholder="friend@example.com" className="input" />
-          <button className="btn-primary shrink-0" disabled={inv.state !== "idle"}>{inv.state !== "idle" ? "Sending…" : "Send invite"}</button>
+          <PendingButton className="btn-primary shrink-0" busy={inv.state !== "idle"} pendingLabel="Sending…">Send invite</PendingButton>
         </inv.Form>
         {invited && (
           <Notice>
@@ -111,7 +112,7 @@ export default function GroupPage() {
           </select>
           <input name="date" type="date" required defaultValue={addDays(today, -1)} max={today} className="input" />
           <input name="steps" type="number" inputMode="numeric" min={0} max={150000} required placeholder="Steps" className="input sm:!w-32" />
-          <button className="btn-primary col-span-2 sm:col-span-1" disabled={correct.state !== "idle"}>Set</button>
+          <PendingButton className="btn-primary col-span-2 sm:col-span-1" busy={correct.state !== "idle"}>Set</PendingButton>
         </correct.Form>
         {corrected && <Notice>Set {corrected.steps.toLocaleString("en-US")} steps for {corrected.date}.</Notice>}
         <ErrorNote error={correct.data && "error" in correct.data ? correct.data.error : null} />
@@ -142,7 +143,7 @@ export default function GroupPage() {
             <input name="timezone" defaultValue={group.timezone} className="input" />
           </div>
           <div className="col-span-2">
-            <button className="btn-primary w-full" disabled={settings.state !== "idle"}>Save rules</button>
+            <PendingButton className="btn-primary w-full" busy={settings.state !== "idle"}>Save rules</PendingButton>
             {settings.data && "ok" in settings.data && <Notice>Saved. Changes apply to days finalized from now on.</Notice>}
             <ErrorNote error={settings.data && "error" in settings.data ? settings.data.error : null} />
           </div>
@@ -164,7 +165,7 @@ function InviteRow({ i }: { i: { id: string; email: string; expires_at: number }
       <f.Form method="post">
         <input type="hidden" name="intent" value="revoke" />
         <input type="hidden" name="id" value={i.id} />
-        <button className="text-xs text-coral hover:underline">Revoke</button>
+        <PendingButton className="inline-flex items-center gap-1 text-xs text-coral hover:underline disabled:opacity-50" busy={f.state !== "idle"} pendingLabel="Revoking…">Revoke</PendingButton>
       </f.Form>
     </li>
   );
@@ -185,7 +186,7 @@ function MemberRow({ m }: { m: { id: string; name: string; email: string; role: 
         <f.Form method="post" onSubmit={(e) => !confirm(`Remove ${m.name}? They stop counting from today.`) && e.preventDefault()}>
           <input type="hidden" name="intent" value="remove" />
           <input type="hidden" name="userId" value={m.id} />
-          <button className="btn-danger !px-3 !py-1.5 text-xs">Remove</button>
+          <PendingButton className="btn-danger !px-3 !py-1.5 text-xs" busy={f.state !== "idle"} pendingLabel="Removing…">Remove</PendingButton>
         </f.Form>
       )}
     </li>

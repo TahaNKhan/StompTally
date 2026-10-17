@@ -1,6 +1,7 @@
 import { useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/me";
 import { Avatar, ErrorNote, LogoutButton } from "../components/ui";
+import { PendingButton } from "../components/pending";
 import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
 import { renameSelf } from "../lib/service";
 import { loadMe } from "../lib/pages";
@@ -36,7 +37,7 @@ export default function Me() {
         </div>
         <rename.Form method="post" className="mt-4 flex gap-2">
           <input name="name" defaultValue={user.name} maxLength={40} className="input" aria-label="Display name" />
-          <button className="btn-ghost shrink-0" disabled={rename.state !== "idle"}>Rename</button>
+          <PendingButton className="btn-ghost shrink-0" busy={rename.state !== "idle"}>Rename</PendingButton>
         </rename.Form>
         <ErrorNote error={rename.data && "error" in rename.data ? rename.data.error : null} />
       </section>

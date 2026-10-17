@@ -1,6 +1,7 @@
 import { Form, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import type { Route } from "./+types/invite";
 import { AuthCard, ErrorNote } from "../components/ui";
+import { PendingButton } from "../components/pending";
 import { db, formAction, origin, rateLimit, sid } from "../lib/http.server";
 import { loadInvitePage } from "../lib/pages";
 import { AppError, completeInvite, previewInvite, startInviteAcceptance } from "../lib/service";
@@ -77,9 +78,9 @@ export default function Invite() {
         <label className="label">What should we call you?</label>
         <input name="name" required maxLength={40} className="input" placeholder="First name" autoFocus />
         <ErrorNote error={data && "error" in data ? data.error : null} />
-        <button className="btn-primary mt-4 w-full" disabled={nav.state !== "idle"}>
+        <PendingButton className="btn-primary mt-4 w-full" busy={nav.state !== "idle"} pendingLabel="Sending…">
           Send confirm link to {invite.email}
-        </button>
+        </PendingButton>
       </Form>
     </AuthCard>
   );

@@ -93,6 +93,18 @@ Each main page uses **one SQL statement and one D1 round trip**, including authe
 
 This budget applies to page reads, not mutations (writes may need validation and a transaction).
 
+## Loading feedback
+
+Navigation and form submissions immediately show a loading overlay. Continue shows “Logging you in…” through the login POST and redirect; form buttons show a spinner and disable repeat submissions. The page behind the overlay is inert for pointer and keyboard input. Automatic background refresh stays silent.
+
+Browser regression checks hold real requests open (without mocking responses) and verify success, error recovery, duplicate taps, redirects and background refresh:
+
+```bash
+LOG=/path/to/dev-server.log node scripts/pending-browser.mjs
+```
+
+Run after `scripts/smoke.sh` against its local fixture. Uses Chromium at `/usr/bin/chromium`, or set `CHROMIUM`. The tests never use a production account.
+
 ## Not built yet
 
 - Pulling steps straight from the Stompers API instead of manual entry (leaderboard numbers include power-ups, so Apple Health can't be the source). Parked until the endpoints are tested.

@@ -1,6 +1,7 @@
 import { Form, redirect, useActionData, useNavigation } from "react-router";
 import type { Route } from "./+types/setup";
 import { AuthCard, ErrorNote } from "../components/ui";
+import { PendingButton } from "../components/pending";
 import { db, formAction, origin, rateLimit } from "../lib/http.server";
 import { bootstrap, createLoginToken, isBootstrapped } from "../lib/service";
 import { loginEmail, sendMail } from "../lib/mail.server";
@@ -66,7 +67,7 @@ export default function Setup() {
           <input name="timezone" defaultValue="America/Los_Angeles" className="input" />
         </div>
         <ErrorNote error={data && "error" in data ? data.error : null} />
-        <button className="btn-primary w-full" disabled={nav.state !== "idle"}>Create group</button>
+        <PendingButton className="btn-primary w-full" busy={nav.state !== "idle"} pendingLabel="Creating…">Create group</PendingButton>
       </Form>
     </AuthCard>
   );

@@ -1,5 +1,6 @@
 // Shared UI bits.
-import { Form, Link, NavLink } from "react-router";
+import { Form, Link, NavLink, useNavigation } from "react-router";
+import { PendingButton } from "./pending";
 
 const PALETTE = ["#b6f35c", "#7cc4ff", "#ffc857", "#ff8fab", "#c4a7ff", "#5eead4", "#fdba74"];
 
@@ -112,9 +113,10 @@ export function Notice({ children }: { children: React.ReactNode }) {
 }
 
 export function LogoutButton() {
+  const navigation = useNavigation();
   return (
     <Form method="post" action="/logout">
-      <button className="btn-ghost w-full">Log out</button>
+      <PendingButton className="btn-ghost w-full" busy={navigation.state !== "idle"} pendingLabel="Logging out…">Log out</PendingButton>
     </Form>
   );
 }

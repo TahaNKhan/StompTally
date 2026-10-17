@@ -1,4 +1,5 @@
-import { Form, redirect, useLoaderData } from "react-router";
+import { Form, redirect, useLoaderData, useNavigation } from "react-router";
+import { PendingButton } from "../components/pending";
 import type { Route } from "./+types/auth";
 import { AuthCard } from "../components/ui";
 import { db, sessionCookie } from "../lib/http.server";
@@ -25,11 +26,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 export default function Auth() {
   const { next } = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
   return (
     <AuthCard title="One tap left" subtitle="Confirm to finish logging in.">
       <Form method="post">
         <input type="hidden" name="next" value={next} />
-        <button className="btn-primary w-full" autoFocus>Continue</button>
+        <PendingButton className="btn-primary w-full" autoFocus busy={navigation.state !== "idle"} pendingLabel="Logging in…">Continue</PendingButton>
       </Form>
     </AuthCard>
   );

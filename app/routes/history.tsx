@@ -1,6 +1,7 @@
 import { Link, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/history";
 import { money } from "../components/ui";
+import { PendingButton } from "../components/pending";
 import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
 import { settleMonth, unsettleMonth } from "../lib/service";
 import { loadHistory } from "../lib/pages";
@@ -59,11 +60,11 @@ function Row({ r, isAdmin, current }: { r: Awaited<ReturnType<typeof loader>>["r
         <f.Form method="post" className="mt-4 flex gap-2">
           <input type="hidden" name="month" value={r.month} />
           {r.settled_at ? (
-            <button name="intent" value="unsettle" className="btn-ghost text-xs">Mark unpaid</button>
+            <PendingButton name="intent" value="unsettle" className="btn-ghost text-xs" busy={f.state !== "idle"}>Mark unpaid</PendingButton>
           ) : (
             <>
               <input name="note" placeholder="e.g. Ruth's Chris, Nov 2" className="input !py-2 text-sm" maxLength={200} />
-              <button name="intent" value="settle" className="btn-primary shrink-0 text-xs">Mark settled</button>
+              <PendingButton name="intent" value="settle" className="btn-primary shrink-0 text-xs" busy={f.state !== "idle"}>Mark settled</PendingButton>
             </>
           )}
         </f.Form>

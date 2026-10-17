@@ -1,6 +1,7 @@
 import { Form, redirect, useActionData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/login";
 import { AuthCard, ErrorNote, Notice } from "../components/ui";
+import { PendingButton } from "../components/pending";
 import { db, formAction, origin, rateLimit, sid } from "../lib/http.server";
 import { createLoginToken } from "../lib/service";
 import { loadLoginState } from "../lib/pages";
@@ -56,9 +57,7 @@ export default function Login() {
           <input id="email" name="email" type="email" autoComplete="email" required placeholder="you@example.com" className="input" autoFocus />
           <ErrorNote error={data && "error" in data ? data.error : null} />
           {params.get("expired") && <Notice>That link expired. Grab a fresh one.</Notice>}
-          <button className="btn-primary mt-4 w-full" disabled={nav.state !== "idle"}>
-            {nav.state !== "idle" ? "Sending…" : "Email me a login link"}
-          </button>
+          <PendingButton className="btn-primary mt-4 w-full" busy={nav.state !== "idle"} pendingLabel="Sending…">Email me a login link</PendingButton>
           <p className="mt-4 text-center text-xs text-muted">Invite-only. No passwords.</p>
         </Form>
       )}
