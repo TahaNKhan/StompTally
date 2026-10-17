@@ -1,13 +1,15 @@
 import { Link, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/history";
 import { money } from "../components/ui";
-import { db, formAction, requireMember } from "../lib/http.server";
-import { history, settleMonth, unsettleMonth } from "../lib/service";
-import { formatMonth, localDate, monthOf } from "../lib/dates";
+import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
+import { settleMonth, unsettleMonth } from "../lib/service";
+import { loadHistory } from "../lib/pages";
+import { formatMonth } from "../lib/dates";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { group, role } = await requireMember(request);
-  return { rows: await history(db(), group.id), isAdmin: role === "admin", current: monthOf(localDate(new Date(), group.timezone)) };
+  const result = await loadHistory(db(), sid(request));
+  memberOr(request, result.auth);
+  return result.page!;
 }
 
 export async function action({ request }: Route.ActionArgs) {

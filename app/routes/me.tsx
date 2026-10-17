@@ -1,12 +1,14 @@
 import { useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/me";
 import { Avatar, ErrorNote, LogoutButton } from "../components/ui";
-import { db, formAction, requireMember } from "../lib/http.server";
+import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
 import { renameSelf } from "../lib/service";
+import { loadMe } from "../lib/pages";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { user, group } = await requireMember(request);
-  return { user, rules: { threshold: group.threshold_steps, penalty: group.penalty_cents, skips: group.skips_per_month } };
+  const result = await loadMe(db(), sid(request));
+  memberOr(request, result.auth);
+  return result.page!;
 }
 
 export async function action({ request }: Route.ActionArgs) {

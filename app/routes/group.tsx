@@ -1,21 +1,18 @@
 import { redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/group";
 import { Avatar, ErrorNote, Notice } from "../components/ui";
-import { db, formAction, origin, rateLimit, requireMember } from "../lib/http.server";
-import { createInvite, listMembers, listPendingInvites, recordSteps, removeMember, revokeInvite, updateGroup } from "../lib/service";
+import { db, formAction, memberOr, origin, rateLimit, requireMember, sid } from "../lib/http.server";
+import { createInvite, recordSteps, removeMember, revokeInvite, updateGroup } from "../lib/service";
 import { inviteEmail, sendMail } from "../lib/mail.server";
 import { env } from "cloudflare:workers";
-import { addDays, localDate } from "../lib/dates";
+import { addDays } from "../lib/dates";
+import { loadGroupAdmin } from "../lib/pages";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { group, role } = await requireMember(request);
-  if (role !== "admin") throw redirect("/");
-  return {
-    group,
-    members: (await listMembers(db(), group.id)).filter((m) => m.left_date === null),
-    invites: await listPendingInvites(db(), group.id),
-    today: localDate(new Date(), group.timezone),
-  };
+  const result = await loadGroupAdmin(db(), sid(request));
+  const ctx = memberOr(request, result.auth);
+  if (ctx.role !== "admin") throw redirect("/");
+  return result.page!;
 }
 
 export async function action({ request }: Route.ActionArgs) {

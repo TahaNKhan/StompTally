@@ -1,16 +1,14 @@
 import { Link, useLoaderData } from "react-router";
 import type { Route } from "./+types/month";
 import { Avatar, fmtSteps, money } from "../components/ui";
-import { db, requireMember } from "../lib/http.server";
-import { monthView } from "../lib/service";
-import { addMonths, formatMonth, localDate, monthOf } from "../lib/dates";
+import { db, memberOr, sid } from "../lib/http.server";
+import { loadMonth } from "../lib/pages";
+import { addMonths, formatMonth } from "../lib/dates";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { group } = await requireMember(request);
-  const today = localDate(new Date(), group.timezone);
-  const month = params.ym && /^\d{4}-\d{2}$/.test(params.ym) ? params.ym : monthOf(today);
-  const mv = await monthView(db(), group, month);
-  return { ...mv, today, current: monthOf(today), startMonth: monthOf(group.start_date) };
+  const result = await loadMonth(db(), sid(request), params.ym);
+  memberOr(request, result.auth);
+  return result.page!;
 }
 
 export default function Month() {

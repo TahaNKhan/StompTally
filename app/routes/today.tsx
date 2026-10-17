@@ -2,25 +2,15 @@ import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "reac
 import { useEffect, useRef, useState } from "react";
 import type { Route } from "./+types/today";
 import { Avatar, ErrorNote, fmtSteps, money, Notice, timeAgo } from "../components/ui";
-import { db, formAction, requireMember } from "../lib/http.server";
-import { cancelSkip, claimSkip, monthView, recordSteps, todayBoard } from "../lib/service";
-import { formatDay, monthOf } from "../lib/dates";
+import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
+import { cancelSkip, claimSkip, recordSteps } from "../lib/service";
+import { formatDay } from "../lib/dates";
+import { loadToday } from "../lib/pages";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { user, group } = await requireMember(request);
-  const board = await todayBoard(db(), group);
-  const mv = await monthView(db(), group, board.month);
-  return {
-    me: user.id,
-    group: { threshold: group.threshold_steps, penalty: group.penalty_cents, skips: group.skips_per_month },
-    today: board.today,
-    yesterday: board.yesterday,
-    skipsUsedToday: Object.fromEntries(board.today.rows.map((r) => [r.userId, board.skipsUsed(r.userId, board.month)])),
-    skipsUsedYesterday: Object.fromEntries(board.yesterday.rows.map((r) => [r.userId, board.skipsUsed(r.userId, monthOf(board.yesterday.date))])),
-    totals: mv.totals,
-    pot: mv.potCents,
-    now: Date.now(),
-  };
+  const result = await loadToday(db(), sid(request));
+  memberOr(request, result.auth);
+  return result.page!;
 }
 
 export async function action({ request }: Route.ActionArgs) {

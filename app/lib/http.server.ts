@@ -2,12 +2,14 @@
 import { env } from "cloudflare:workers";
 import { redirect } from "react-router";
 import { d1Db } from "./db";
-import { AppError, getMembership, getSessionUser } from "./service";
+import { AppError } from "./service";
+import { runAuthed, type Authed, type Ctx } from "./pages";
+import { requestDb } from "./request-db.server";
 
 export const SESSION_COOKIE = "st_session";
 
 export function db() {
-  return d1Db(env.DB);
+  return requestDb.getStore()?.db ?? d1Db(env.DB);
 }
 
 export function getCookie(request: Request, name: string) {
@@ -18,6 +20,8 @@ export function getCookie(request: Request, name: string) {
   }
   return null;
 }
+
+export const sid = (request: Request) => getCookie(request, SESSION_COOKIE);
 
 export function sessionCookie(request: Request, sid: string | null) {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
@@ -30,17 +34,16 @@ export function origin(request: Request) {
   return env.APP_URL || new URL(request.url).origin;
 }
 
-export async function currentUser(request: Request) {
-  return getSessionUser(db(), getCookie(request, SESSION_COOKIE));
+/** Turn a one-batch page result into a logged-in member context, or redirect. */
+export function memberOr(request: Request, a: Authed): Ctx {
+  if (!a.user) throw redirect(`/login?next=${encodeURIComponent(new URL(request.url).pathname)}`);
+  if (!a.ctx) throw redirect("/no-group");
+  return a.ctx;
 }
 
-/** Logged in AND in a group, else redirect. */
+/** Actions also resolve session + membership in one DB call, not two chained reads. */
 export async function requireMember(request: Request) {
-  const user = await currentUser(request);
-  if (!user) throw redirect(`/login?next=${encodeURIComponent(new URL(request.url).pathname)}`);
-  const m = await getMembership(db(), user.id);
-  if (!m) throw redirect("/no-group");
-  return { user, ...m };
+  return memberOr(request, await runAuthed(db(), sid(request), Date.now()));
 }
 
 /** Turn AppErrors into form errors; rethrow everything else. */

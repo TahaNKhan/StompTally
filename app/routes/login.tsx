@@ -1,15 +1,17 @@
 import { Form, redirect, useActionData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/login";
 import { AuthCard, ErrorNote, Notice } from "../components/ui";
-import { currentUser, db, formAction, origin, rateLimit } from "../lib/http.server";
-import { createLoginToken, isBootstrapped } from "../lib/service";
+import { db, formAction, origin, rateLimit, sid } from "../lib/http.server";
+import { createLoginToken } from "../lib/service";
+import { loadLoginState } from "../lib/pages";
 import { loginEmail, sendMail } from "../lib/mail.server";
 import { isEmail } from "../lib/crypto";
 import { env } from "cloudflare:workers";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  if (!(await isBootstrapped(db()))) throw redirect("/setup");
-  if (await currentUser(request)) throw redirect("/");
+  const state = await loadLoginState(db(), sid(request));
+  if (!state.bootstrapped) throw redirect("/setup");
+  if (state.loggedIn) throw redirect("/");
   return null;
 }
 

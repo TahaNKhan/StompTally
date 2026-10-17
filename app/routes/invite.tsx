@@ -1,15 +1,16 @@
 import { Form, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import type { Route } from "./+types/invite";
 import { AuthCard, ErrorNote } from "../components/ui";
-import { currentUser, db, formAction, origin, rateLimit } from "../lib/http.server";
+import { db, formAction, origin, rateLimit, sid } from "../lib/http.server";
+import { loadInvitePage } from "../lib/pages";
 import { AppError, completeInvite, previewInvite, startInviteAcceptance } from "../lib/service";
 import { confirmInviteEmail, sendMail } from "../lib/mail.server";
 import { env } from "cloudflare:workers";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   try {
-    const inv = await previewInvite(db(), params.token);
-    const user = await currentUser(request);
+    const { invite: raw, user } = await loadInvitePage(db(), params.token, sid(request));
+    const inv = { email: raw.email, groupName: raw.group_name, inviter: raw.inviter };
     // Returning from the confirm email with a matching session: finish joining.
     if (user && user.email === inv.email) {
       await completeInvite(db(), user, params.token);

@@ -1,9 +1,11 @@
 // All server-side business logic. Takes a Db so it runs against D1 in prod and node:sqlite in tests.
+// Round-trip budget: every Db call is one network hop on D1. Page reads live in pages.ts (one batch per page).
 import type { Db } from "./db";
 import { stmt } from "./db";
 import { isEmail, newId, normalizeEmail, randomToken, sha256 } from "./crypto";
 import { computeDay, canClaimSkip } from "./rules";
-import { addDays, daysInMonth, isDate, lastFinalizableDate, localDate, monthOf } from "./dates";
+import { addDays, addMonths, daysInMonth, isDate, lastFinalizableDate, localDate, monthOf } from "./dates";
+import { activeOn, buildMonth, type ClaimRow, type EntryRow, type MemberRow, type PenaltyRow, type ResultRow } from "./views";
 
 const HOUR = 3600_000;
 const DAY = 24 * HOUR;
@@ -131,15 +133,11 @@ export async function getMembership(db: Db, userId: string) {
 }
 
 export async function listMembers(db: Db, groupId: string) {
-  return db.all<{ id: string; name: string; email: string; role: string; joined_date: string; left_date: string | null }>(
+  return db.all<MemberRow>(
     `SELECT u.id, u.name, u.email, m.role, m.joined_date, m.left_date
      FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.group_id = ? ORDER BY m.joined_date, u.name`,
     groupId,
   );
-}
-
-function activeOn(m: { joined_date: string; left_date: string | null }, date: string) {
-  return m.joined_date <= date && (m.left_date === null || m.left_date > date);
 }
 
 export async function updateGroup(db: Db, actor: User, groupId: string, patch: Partial<Pick<Group, "name" | "timezone" | "threshold_steps" | "penalty_cents" | "skips_per_month">>, now = Date.now()) {
@@ -201,14 +199,6 @@ export async function createInvite(db: Db, actor: User, groupId: string, rawEmai
     audit(groupId, actor.id, "invite.create", { email }, now),
   ]);
   return { id, token, email };
-}
-
-export async function listPendingInvites(db: Db, groupId: string, now = Date.now()) {
-  return db.all<{ id: string; email: string; expires_at: number; created_at: number }>(
-    "SELECT id, email, expires_at, created_at FROM invites WHERE group_id = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ? ORDER BY created_at DESC",
-    groupId,
-    now,
-  );
 }
 
 export async function revokeInvite(db: Db, actor: User, groupId: string, inviteId: string, now = Date.now()) {

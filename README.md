@@ -21,8 +21,10 @@ React Router v8 (SSR) · Cloudflare Workers · D1 (SQLite) · Cron Trigger (hour
 
 ```
 app/lib/rules.ts        pure money logic (who pays), unit-tested
-app/lib/service.ts      all business logic, takes a tiny Db interface
-app/lib/db.ts           Db interface + D1 adapter
+app/lib/service.ts      write-side business logic, takes a tiny Db interface
+app/lib/pages.ts        one SQL statement per page, including session and group lookup
+app/lib/views.ts        pure view builders, no database calls
+app/lib/db.ts           Db interface + D1 adapter with request-scoped timing
 app/lib/dates.ts        timezone / lock-time helpers
 app/lib/mail.server.ts  Resend sender (logs to console when no API key)
 app/routes/             pages: today, month, history (ledger), me, group (admin), login, invite, setup
@@ -82,6 +84,14 @@ Then open `https://<your-domain>/setup`, create the admin, and invite people fro
 - An invite is bound to one email. Accepting it sends a confirm link to that address, and membership is only granted if the logged-in email matches.
 - Login, setup and invite endpoints are rate-limited (Workers rate-limit binding).
 - No secrets live in the repo. `.dev.vars` is git-ignored; production secrets are Wrangler secrets.
+
+## Performance
+
+Each main page uses **one SQL statement and one D1 round trip**, including authentication. A CTE resolves the session and group, and separate JSON-aggregated subqueries fetch the datasets without multiplying rows. The shared layout uses the child page's result instead of doing another lookup.
+
+`pages.test.ts` enforces the one-call limit and tests expired sessions, cross-group isolation and timezone/month boundaries. Responses include `X-DB-Calls`, `X-DB-Statements` and `Server-Timing` so latency can be verified on the deployed Worker. Smart Placement is enabled; it may take time to learn a better location.
+
+This budget applies to page reads, not mutations (writes may need validation and a transaction).
 
 ## Not built yet
 

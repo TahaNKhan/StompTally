@@ -12,6 +12,14 @@ function sqliteDb(): Db {
   return {
     async all(sql, ...p) { return d.prepare(sql).all(...norm(p)) as any; },
     async first(sql, ...p) { return (d.prepare(sql).get(...norm(p)) as any) ?? null; },
+    async query(stmts) {
+      d.exec("BEGIN");
+      try {
+        const rows = stmts.map((s) => d.prepare(s.sql).all(...norm(s.params)) as any[]);
+        d.exec("COMMIT");
+        return rows;
+      } catch (e) { d.exec("ROLLBACK"); throw e; }
+    },
     async run(sql, ...p) { return { changes: Number(d.prepare(sql).run(...norm(p)).changes) }; },
     async batch(stmts) {
       d.exec("BEGIN");

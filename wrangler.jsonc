@@ -6,7 +6,9 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "stomp-tally",
 	"compatibility_date": "2026-10-06",
+	"compatibility_flags": ["nodejs_compat"],
 	"main": "./workers/app.ts",
+	"placement": { "mode": "smart" },
 	"vars": {
 		"APP_URL": "https://steps.tahakhan.dev",
 		"MAIL_FROM": "Stomp Tally <steps@tahakhan.dev>"
@@ -26,6 +28,6 @@
 		{ "name": "RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
 	],
 	"routes": [{ "pattern": "steps.tahakhan.dev", "custom_domain": true }],
-	"observability": { "enabled": true },
+	"observability": { "enabled": true, "traces": { "enabled": true } },
 	"upload_source_maps": true
 }
