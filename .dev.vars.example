@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local development. .dev.vars is git-ignored.
+# Production secrets are set with `wrangler secret put`, not this file.
+SETUP_KEY=dev-setup-key
+APP_URL=http://localhost:5173
+# Leave RESEND_API_KEY unset locally: emails get printed to the dev server console instead of sent.
+# RESEND_API_KEY=

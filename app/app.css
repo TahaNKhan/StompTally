@@ -1,0 +1,72 @@
+@import "tailwindcss" source(".");
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #09090c;
+  --color-panel: #121218;
+  --color-line: #23232d;
+  --color-muted: #8b8b98;
+  --color-lime: #b6f35c;
+  --color-coral: #ff6b6b;
+  --color-amber: #ffc857;
+  --color-sky: #7cc4ff;
+}
+
+html,
+body {
+  background: var(--color-ink);
+  color: #ececf1;
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-image:
+    radial-gradient(60rem 30rem at 50% -10rem, rgb(182 243 92 / 0.08), transparent 70%),
+    radial-gradient(40rem 20rem at 100% 0, rgb(124 196 255 / 0.05), transparent 70%);
+  background-attachment: fixed;
+  min-height: 100dvh;
+}
+
+@utility card {
+  @apply rounded-2xl border border-line bg-panel/80 backdrop-blur;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-lime text-ink hover:brightness-110;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-white/[0.03] text-zinc-200 hover:bg-white/[0.07];
+}
+@utility btn-danger {
+  @apply btn border border-coral/30 bg-coral/10 text-coral hover:bg-coral/20;
+}
+@utility input {
+  @apply w-full rounded-xl border border-line bg-black/30 px-3.5 py-2.5 text-[15px] text-white outline-none placeholder:text-zinc-600 focus:border-lime/60 focus:ring-2 focus:ring-lime/20;
+}
+@utility label {
+  @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted;
+}
+
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.bar-grow {
+  transform-origin: left;
+  animation: grow 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.4s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar-grow, .rise { animation: none; }
+}

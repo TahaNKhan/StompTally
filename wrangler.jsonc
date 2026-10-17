@@ -1,0 +1,31 @@
+/**
+ * Stomp Tally — https://steps.tahakhan.dev
+ * Secrets (wrangler secret put): RESEND_API_KEY
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "stomp-tally",
+	"compatibility_date": "2026-10-06",
+	"main": "./workers/app.ts",
+	"vars": {
+		"APP_URL": "https://steps.tahakhan.dev",
+		"MAIL_FROM": "Stomp Tally <steps@tahakhan.dev>"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "stomp-tally",
+			// From `wrangler d1 create stomp-tally`. Not a secret, but change it if you fork this for your own account.
+			"database_id": "b5caa823-ca2f-4211-831c-d412829c2114",
+			"migrations_dir": "migrations"
+		}
+	],
+	// Hourly; finalizeDue() decides which days are past their noon-next-day cutoff.
+	"triggers": { "crons": ["5 * * * *"] },
+	"ratelimits": [
+		{ "name": "RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+	],
+	"routes": [{ "pattern": "steps.tahakhan.dev", "custom_domain": true }],
+	"observability": { "enabled": true },
+	"upload_source_maps": true
+}
