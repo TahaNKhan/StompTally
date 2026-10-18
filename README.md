@@ -4,6 +4,23 @@ Daily step stakes for a friend group. Link a [Stompers](https://stompers.com) us
 
 Invite-only. Email magic-link login, no passwords. Runs on Cloudflare Workers + D1 (free tier is plenty for a handful of people).
 
+## Screenshots
+
+All data below is invented. Regenerate with `node scripts/screenshots.mjs`.
+
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/today.png" width="240" alt="Today: live board with Stompers sync status"><br><b>Today</b></td>
+    <td align="center"><img src="screenshots/month.png" width="240" alt="Month: meal pot and calendar"><br><b>Month</b></td>
+    <td align="center"><img src="screenshots/ledger.png" width="240" alt="Ledger: monthly totals and settlement"><br><b>Ledger</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/me.png" width="240" alt="Me: Stompers link and manual steps"><br><b>Me</b></td>
+    <td align="center"><img src="screenshots/group.png" width="240" alt="Group: invites and members for admins"><br><b>Group (admin)</b></td>
+    <td></td>
+  </tr>
+</table>
+
 ## Rules
 
 - Lowest steps under the goal (default 10,000) owes the penalty (default $5). Exactly 10,000 is safe.
@@ -35,6 +52,7 @@ app/routes/             pages: today, month, history (ledger), me, group (admin)
 workers/app.ts          Worker entry: security headers + two-hour sync before finalize
 migrations/             D1 schema
 scripts/smoke.sh        end-to-end HTTP smoke test against `npm run dev`
+scripts/screenshots.mjs seeds a throwaway local DB with fake data and renders screenshots/
 ```
 
 ## Develop
