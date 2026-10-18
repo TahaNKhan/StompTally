@@ -1,6 +1,6 @@
 import { createRequestHandler } from "react-router";
 import { d1Db } from "../app/lib/db";
-import { finalizeDue } from "../app/lib/service";
+import { runStompersSchedule } from "../app/lib/stompers.server";
 import { requestDb } from "../app/lib/request-db.server";
 
 const requestHandler = createRequestHandler(
@@ -33,8 +33,8 @@ export default {
 
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(
-      finalizeDue(d1Db(env.DB)).then((done) => {
-        if (done.length) console.log("finalized", JSON.stringify(done));
+      runStompersSchedule(d1Db(env.DB)).then((done) => {
+        console.log("stompers.schedule", JSON.stringify(done));
       }),
     );
   },

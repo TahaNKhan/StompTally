@@ -1,10 +1,10 @@
 import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import type { Route } from "./+types/today";
 import { Avatar, ErrorNote, fmtSteps, money, Notice, timeAgo } from "../components/ui";
 import { PendingButton } from "../components/pending";
 import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
-import { cancelSkip, claimSkip, recordSteps } from "../lib/service";
+import { AppError, cancelSkip, claimSkip } from "../lib/service";
 import { formatDay } from "../lib/dates";
 import { loadToday } from "../lib/pages";
 
@@ -22,8 +22,7 @@ export async function action({ request }: Route.ActionArgs) {
   return formAction(async () => {
     if (intent === "skip") await claimSkip(db(), user, date);
     else if (intent === "unskip") await cancelSkip(db(), user, date);
-    else if (intent === "manual")
-      await recordSteps(db(), { actor: user, userId: user.id, date, steps: Math.round(Number(f.get("steps"))), source: "manual" });
+    else throw new AppError(400, "Unknown action. Log manual steps on Me.");
     return { ok: true };
   });
 }
@@ -77,8 +76,11 @@ function Board({ day, me, threshold, penalty, skips, skipsUsed, now, label, live
                     )}
                   </div>
                   <div className="text-xs text-muted">
-                    {r.steps == null ? "not logged yet · counts as 0" : `logged ${timeAgo(r.updatedAt, now)}`} · {skips - (skipsUsed[r.userId] ?? 0)}/{skips} skips left
+                    {r.steps == null ? "not logged yet · counts as 0" : `${r.source === "manual" ? "manual entry" : "logged"} ${timeAgo(r.updatedAt, now)}`} · {skips - (skipsUsed[r.userId] ?? 0)}/{skips} skips left
                   </div>
+                  {r.rawSteps != null && r.gameSteps != null && <div className="mt-1 text-xs text-muted">
+                    Walking {fmtSteps(r.rawSteps)} · Game {fmtSteps(r.gameSteps)}{r.source === "stompers" ? " · Higher count used" : r.source === "admin" ? " · Admin override" : " · Manual entry"}
+                  </div>}
                 </div>
                 <div className="text-right font-display text-lg font-bold tabular-nums" style={{ color }}>
                   {fmtSteps(r.steps)}
@@ -138,14 +140,10 @@ export default function Today() {
     return () => clearInterval(t);
   }, [rv]);
   const meTotal = d.totals.find((t) => t.userId === d.me);
-  const myToday = d.today.rows.find((r) => r.userId === d.me)?.steps ?? null;
-  const myYesterday = d.yesterday.finalized ? undefined : (d.yesterday.rows.find((r) => r.userId === d.me)?.steps ?? null);
 
   return (
     <div className="space-y-4">
-      {params.get("joined") && <Notice>You're in! Log your Stompers steps below each day.</Notice>}
-
-      <LogSteps today={d.today.date} yesterday={d.yesterday.finalized ? null : d.yesterday.date} myToday={myToday} myYesterday={myYesterday} />
+      {params.get("joined") && <Notice>You're in! Link Stompers or log manual steps on Me.</Notice>}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="card p-4 rise">
@@ -165,64 +163,5 @@ export default function Today() {
       )}
       <Board day={d.today} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live />
     </div>
-  );
-}
-
-function LogSteps({ today, yesterday, myToday, myYesterday }: { today: string; yesterday: string | null; myToday: number | null; myYesterday: number | null | undefined }) {
-  const f = useFetcher<typeof action>();
-  const [day, setDay] = useState<"today" | "yesterday">("today");
-  const date = day === "today" || !yesterday ? today : yesterday;
-  const current = day === "today" ? myToday : myYesterday ?? null;
-  const formRef = useRef<HTMLFormElement>(null);
-  const saved = f.state === "idle" && f.data && "ok" in f.data;
-  useEffect(() => {
-    if (saved) formRef.current?.reset();
-  }, [saved]);
-
-  return (
-    <section className="card p-5 rise">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-bold">Log your steps</h2>
-        {yesterday && (
-          <div className="flex rounded-lg border border-line p-0.5 text-xs">
-            {(["today", "yesterday"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setDay(k)}
-                className={`rounded-md px-2.5 py-1 font-medium capitalize transition ${day === k ? "bg-white/10 text-white" : "text-muted"}`}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <p className="mt-1 text-sm text-muted">
-        Enter your <b className="text-zinc-200">Stompers</b> number (after power-ups) for {formatDay(date)}.
-        {current != null && <> Currently <b className="text-zinc-200">{fmtSteps(current)}</b>.</>}
-      </p>
-      <f.Form ref={formRef} method="post" className="mt-4 flex gap-2">
-        <input type="hidden" name="intent" value="manual" />
-        <input type="hidden" name="date" value={date} />
-        <input
-          key={date}
-          name="steps"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={150000}
-          required
-          placeholder={current != null ? String(current) : "e.g. 11240"}
-          className="input font-display text-lg tabular-nums"
-        />
-        <PendingButton className="btn-primary shrink-0 !px-5" busy={f.state !== "idle"}>
-          {current != null ? "Update" : "Save"}
-        </PendingButton>
-      </f.Form>
-      {saved && <p className="mt-2 text-xs text-lime">✓ Saved</p>}
-      <ErrorNote error={f.data && "error" in f.data ? f.data.error : null} />
-      {yesterday && <p className="mt-2 text-xs text-muted">Yesterday locks at noon. Update anytime before then.</p>}
-    </section>
   );
 }

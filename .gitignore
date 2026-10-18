@@ -19,5 +19,11 @@ worker-configuration.d.ts
 
 # Logs and local browser-test artifacts
 *.log
+__pycache__/
+id-token.txt
+token-info.json
+reads.jsonl
+**/private-capture/
+**/private-proxy/
 /playwright-report/
 /test-results/

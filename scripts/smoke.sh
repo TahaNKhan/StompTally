@@ -43,7 +43,7 @@ post admin /setup -d setup_key=dev-setup-key -d name=Taha -d email=taha@example.
 L=$(link_for taha@example.com /auth/); [ -n "$L" ] || fail "no login link mailed"
 login_via admin "$L"
 sleep 0.3
-if page admin / | grep -q "Log your steps"; then pass "admin logged in, Today renders"; else echo "✗ admin logged in, Today renders"; FAILS=$((FAILS+1)); fi
+if page admin /me | grep -q "Log your steps"; then pass "admin logged in, Today renders"; else echo "✗ admin logged in, Today renders"; FAILS=$((FAILS+1)); fi
 if [ "$(curl -s -o /dev/null -w '%{http_code}' $B/setup)" = 302 ]; then pass "setup locked after first run"; else echo "✗ setup locked after first run"; FAILS=$((FAILS+1)); fi
 T=${L#*/auth/}; T=${T%%\?*}
 if curl -s -o /dev/null -w "%{redirect_url}" -X POST "$B/auth/$T" -d next=/ | grep -q expired; then pass "login link is single-use"; else echo "✗ login link is single-use"; FAILS=$((FAILS+1)); fi
@@ -57,7 +57,7 @@ for n in ali omar zaid sam; do
   post $n "${I#$B}" -d name=${n^} >/dev/null
   login_via $n "$(link_for $n@example.com /auth/)"
   curl -s -o /dev/null -b "$J/$n" -c "$J/$n" "$I"
-  page $n / | grep -q "Log your steps" || fail "$n not in group"
+  page $n /me | grep -q "Log your steps" || fail "$n not in group"
 done
 pass "4 invites → confirm email → joined"
 if text admin /group | grep -q "Members · 5"; then pass "group has 5 members"; else echo "✗ group has 5 members"; FAILS=$((FAILS+1)); fi
@@ -65,12 +65,12 @@ if text outsider "${LAST_INVITE#$B}" | grep -q "already used"; then pass "used i
 
 # 3. manual step entry
 TODAY=$(TZ=America/Los_Angeles date +%F)
-log() { post $1 "/?index" -d intent=manual -d date=$2 -d steps=$3; }
+log() { post $1 "/me" -d intent=manual -d date=$2 -d steps=$3; }
 log admin $TODAY 12500 >/dev/null; log ali $TODAY 6100 >/dev/null; log omar $TODAY 15000 >/dev/null; log zaid $TODAY 9000 >/dev/null
 if page admin / | grep -q "12,500"; then pass "logged steps show on leaderboard"; else echo "✗ logged steps show on leaderboard"; FAILS=$((FAILS+1)); fi
 log ali $TODAY 7300 >/dev/null; if page admin / | grep -q "7,300"; then pass "overwrite works"; else echo "✗ overwrite works"; FAILS=$((FAILS+1)); fi
-if curl -s -b "$J/ali" -X POST "$B/?index" -d intent=manual -d date=2020-01-01 -d steps=1 | grep -q "today or yesterday"; then pass "old date rejected"; else echo "✗ old date rejected"; FAILS=$((FAILS+1)); fi
-if curl -s -b "$J/ali" -X POST "$B/?index" -d intent=manual -d date=$TODAY -d steps=999999 | grep -q "whole number"; then pass "absurd steps rejected"; else echo "✗ absurd steps rejected"; FAILS=$((FAILS+1)); fi
+if curl -s -b "$J/ali" -X POST "$B/me" -d intent=manual -d date=2020-01-01 -d steps=1 | grep -q "today or yesterday"; then pass "old date rejected"; else echo "✗ old date rejected"; FAILS=$((FAILS+1)); fi
+if curl -s -b "$J/ali" -X POST "$B/me" -d intent=manual -d date=$TODAY -d steps=999999 | grep -q "whole number"; then pass "absurd steps rejected"; else echo "✗ absurd steps rejected"; FAILS=$((FAILS+1)); fi
 if page admin / | grep -q "not logged yet"; then pass "sam (no entry) shown as counts-as-0"; else echo "✗ sam (no entry) shown as counts-as-0"; FAILS=$((FAILS+1)); fi
 
 # 4. skips

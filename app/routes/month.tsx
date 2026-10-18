@@ -16,7 +16,7 @@ export default function Month() {
   const first = new Date(`${d.month}-01T12:00:00Z`).getUTCDay();
   const prev = addMonths(d.month, -1);
   const next = addMonths(d.month, 1);
-  const stepsBy = new Map(d.steps.map((s) => [`${s.user_id}|${s.date}`, s.steps]));
+  const stepsBy = new Map(d.steps.map((s) => [`${s.user_id}|${s.date}`, s]));
 
   return (
     <div className="space-y-4">
@@ -118,13 +118,18 @@ export default function Month() {
               <tr key={day.date} className="border-t border-line/50">
                 <td className="py-1.5 pr-2 text-muted">{Number(day.date.slice(8))}</td>
                 {d.totals.map((t) => {
-                  const s = stepsBy.get(`${t.userId}|${day.date}`);
+                  const entry = stepsBy.get(`${t.userId}|${day.date}`);
+                  const s = entry?.steps;
                   const paid = day.payers.includes(t.userId);
                   const skipped = day.skippers.includes(t.userId);
                   return (
                     <td key={t.userId} className={`px-1 py-1.5 text-right ${paid ? "font-bold text-coral" : skipped ? "text-sky" : s != null && s >= 10000 ? "text-zinc-200" : "text-muted"}`}>
                       {s == null ? "–" : s >= 1000 ? `${(s / 1000).toFixed(1)}k` : s}
                       {skipped && "🛡️"}
+                      {entry?.rawSteps != null && entry.gameSteps != null && <div className="mt-1 whitespace-nowrap text-[10px] font-normal text-muted">
+                        <div>Walking {fmtSteps(entry.rawSteps)}</div>
+                        <div>Game {fmtSteps(entry.gameSteps)}</div>
+                      </div>}
                     </td>
                   );
                 })}

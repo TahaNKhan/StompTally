@@ -1,6 +1,6 @@
 # Stomp Tally
 
-Daily step stakes for a friend group. Everyone logs their [Stompers](https://stompers.com) step count. Each day, whoever has the fewest steps **and** is under 10,000 owes $5 toward the monthly group meal. The app keeps the running tally.
+Daily step stakes for a friend group. Link a [Stompers](https://stompers.com) username or user ID on Me. Every two hours, the app pulls walking steps and item-adjusted game steps. The higher count scores the day, including fractional game steps. Each day, whoever has the fewest steps **and** is under 10,000 owes $5 toward the monthly group meal.
 
 Invite-only. Email magic-link login, no passwords. Runs on Cloudflare Workers + D1 (free tier is plenty for a handful of people).
 
@@ -9,26 +9,30 @@ Invite-only. Email magic-link login, no passwords. Runs on Cloudflare Workers + 
 - Lowest steps under the goal (default 10,000) owes the penalty (default $5). Exactly 10,000 is safe.
 - Ties at the lowest: everyone tied pays.
 - No entry for the day counts as 0 steps.
+- Linked accounts keep their last successful counts when the API fails. Missing or stale API data delays locking instead of generating a zero-step penalty. An explicit manual fallback or admin correction can still lock.
+- Both imported counts appear on Today and Month. An admin correction overrides the imported score; later pulls still refresh the two API counts.
+- Manual step entry lives on Me. Each save creates a separate immutable manual entry and an audit event with the previous score and API snapshot. The manual score overrides that day's tally while scheduled pulls continue updating both API counts. Members see their own change history on Me; admins see their group's history on Group.
 - Each person logs their own steps for today, or yesterday until it locks. Days lock at **12:00 noon the next day** (group timezone), then only an admin can correct them.
 - **Skips:** 3 per person per calendar month, claimed manually before the day locks. A skip is only used up if it actually saves you from paying. Otherwise it's released. A used skip never moves the penalty to someone else.
 - An admin can correct any past day. Correcting a locked day recomputes it.
 
 ## Stack
 
-React Router v8 (SSR) · Cloudflare Workers · D1 (SQLite) · Cron Trigger (hourly finalize) · Tailwind v4 · Resend (email) · Vitest
+React Router v8 (SSR) · Cloudflare Workers · D1 (SQLite) · Cron Trigger (two-hour sync and finalize) · Tailwind v4 · Resend (email) · Vitest
 
 ## Layout
 
 ```
 app/lib/rules.ts        pure money logic (who pays), unit-tested
 app/lib/service.ts      write-side business logic, takes a tiny Db interface
+app/lib/stompers.server.ts account links, validated API reads, scheduled imports
 app/lib/pages.ts        one SQL statement per page, including session and group lookup
 app/lib/views.ts        pure view builders, no database calls
 app/lib/db.ts           Db interface + D1 adapter with request-scoped timing
 app/lib/dates.ts        timezone / lock-time helpers
 app/lib/mail.server.ts  Resend sender (logs to console when no API key)
 app/routes/             pages: today, month, history (ledger), me, group (admin), login, invite, setup
-workers/app.ts          Worker entry: security headers + hourly `scheduled()` finalize
+workers/app.ts          Worker entry: security headers + two-hour sync before finalize
 migrations/             D1 schema
 scripts/smoke.sh        end-to-end HTTP smoke test against `npm run dev`
 ```
@@ -112,7 +116,27 @@ LOG=/path/to/dev-server.log node scripts/pending-browser.mjs
 
 Run after `scripts/smoke.sh` against its local fixture. Uses Chromium at `/usr/bin/chromium`, or set `CHROMIUM`. The tests never use a production account.
 
+## Stompers reads
+
+Cron runs at minute 5 of every even UTC hour (`5 */2 * * *`). It resolves
+`USER_UID_friends`, reads `current_game_uid`, and fetches the current game.
+It also reads recent games and caches known game IDs so yesterday can be
+refreshed before the noon lock, even when the history list omits it.
+Only today/yesterday, after joining the group, are imported. Finalized days
+remain unchanged. API games must span one full local day in the group timezone;
+both counts must be valid numbers. A linked API entry must have a successful
+pull within 30 minutes of finalization. Failed days are retried at the next run.
+
+The tested profile/room/game routes currently need no auth token. This is an
+undocumented API and can change. Only linked group members are polled.
+Linking identifies an account; it does not prove ownership of that Stompers
+account. Do not use this as authentication.
+
+The one-time links for the five original signed-up users are in
+`scripts/stompers-seed.sql`. Apply after the migrations with
+`npx wrangler d1 execute stomp-tally --remote --file scripts/stompers-seed.sql`.
+It checks the original user IDs and names and never overwrites existing links.
+
 ## Not built yet
 
-- Pulling steps straight from the Stompers API instead of manual entry (leaderboard numbers include power-ups, so Apple Health can't be the source). Parked until the endpoints are tested.
 - Screenshot upload as a dispute fallback.

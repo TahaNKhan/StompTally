@@ -29,6 +29,8 @@ function fixture(timezone = "America/Los_Angeles") {
   sql.exec("INSERT INTO day_results VALUES ('g','2026-10-29',3000,'[\"u\"]','penalty',1), ('other','2026-10-29',123,'[\"x\"]','penalty',1)");
   sql.exec("INSERT INTO penalties VALUES ('g','u','2026-10-29',500), ('other','x','2026-10-29',99900)");
   sql.exec("INSERT INTO settlements VALUES ('g','2026-10','dinner',1)");
+  sql.exec(readFileSync(new URL("../../migrations/0003_stompers.sql", import.meta.url), "utf8"));
+  sql.exec(readFileSync(new URL("../../migrations/0004_manual_step_entries.sql", import.meta.url), "utf8"));
   return { db, sql, hops: () => hops, reset: () => { hops = 0; } };
 }
 async function ready(timezone?: string) {
@@ -124,6 +126,21 @@ describe("page data", () => {
     const p = (await loadGroupAdmin(f.db, "member", NOW)).page!;
     expect(p.isAdmin).toBe(false);
     expect(p.invites).toEqual([]);
+    expect(p.manualHistory).toEqual([]);
+  });
+  it("manual history is private on Me and group scoped for admins", async () => {
+    const f = await ready();
+    f.sql.exec(`INSERT INTO manual_step_entries(group_id,user_id,actor_id,date,steps,created_at) VALUES
+      ('g','u','u','2026-10-31',9010,1),('g','v','v','2026-10-31',12001,2),('other','x','x','2026-10-31',55556,3)`);
+    const me = (await loadMe(f.db, "valid", NOW)).page!;
+    expect(me.manualHistory.map(h => h.user_id)).toEqual(["u"]);
+    expect(me.today.date).toBe("2026-10-31");
+    expect(me.today.steps).toBe(9000);
+    const admin = (await loadGroupAdmin(f.db, "valid", NOW)).page!;
+    expect(admin.manualHistory.map(h => h.user_id)).toEqual(["v", "u"]);
+    expect(JSON.stringify(admin.manualHistory)).not.toContain("Stranger");
+    expect((await loadGroupAdmin(f.db, "member", NOW)).page!.manualHistory).toEqual([]);
+    expect((await loadMe(f.db, "expired", NOW)).page).toBeNull();
   });
   it("invite preview + session in one DB call", async () => {
     const f = await ready();

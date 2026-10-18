@@ -300,6 +300,17 @@ export async function recordSteps(
   }
 
   await db.batch([
+    ...(input.source === "manual" ? [
+      stmt(`INSERT INTO manual_step_entries (group_id,user_id,actor_id,date,steps,previous_steps,previous_source,raw_steps,game_steps,created_at)
+        SELECT ?,?,?,?,?,e.steps,e.source,e.raw_steps,e.game_steps,? FROM (SELECT 1) seed
+        LEFT JOIN step_entries e ON e.user_id=? AND e.date=?`,
+        group.id, input.userId, input.actor.id, input.date, input.steps, now, input.userId, input.date),
+      stmt(`INSERT INTO audit_log (group_id,actor_id,action,payload,at)
+        SELECT group_id,actor_id,'steps.manual_set',json_object('manualEntryId',id,'userId',user_id,'date',date,'steps',steps,
+          'previousSteps',previous_steps,'previousSource',previous_source,'rawSteps',raw_steps,'gameSteps',game_steps),created_at
+        FROM manual_step_entries WHERE id=last_insert_rowid()`,
+      ),
+    ] : []),
     stmt(
       `INSERT INTO step_entries (user_id, date, steps, source, updated_at) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(user_id, date) DO UPDATE SET steps = excluded.steps, source = excluded.source, updated_at = excluded.updated_at`,
@@ -356,6 +367,17 @@ export async function cancelSkip(db: Db, user: User, date: string, now = Date.no
 
 export async function finalizeDay(db: Db, group: Group, date: string, now = Date.now(), opts: { force?: boolean } = {}) {
   if (!opts.force && (await isFinalized(db, group.id, date))) return null;
+  if (!opts.force) {
+    // A failed or missing API read is unknown, not a zero-step penalty.
+    // Manual fallback/admin corrections are explicit values and may still lock.
+    const pending = await db.first(`SELECT 1 FROM memberships m
+      JOIN stompers_accounts a ON a.user_id=m.user_id
+      LEFT JOIN step_entries e ON e.user_id=m.user_id AND e.date=?
+      WHERE m.group_id=? AND m.joined_date<=? AND (m.left_date IS NULL OR m.left_date>?)
+      AND (e.user_id IS NULL OR (e.source='stompers' AND (a.last_synced_at IS NULL OR e.stompers_synced_at IS NULL OR e.stompers_synced_at<a.updated_at OR e.stompers_synced_at<?))) LIMIT 1`,
+      date, group.id, date, date, now - 30 * 60_000);
+    if (pending) return null;
+  }
   const members = await listMembers(db, group.id);
   const memberIds = members.filter((m) => activeOn(m, date)).map((m) => m.id);
   const entries = await db.all<{ user_id: string; steps: number }>(
@@ -400,6 +422,7 @@ export async function finalizeDue(db: Db, now = Date.now()) {
     for (let i = 0; date <= cutoff && i < 62; i++, date = addDays(date, 1)) {
       const r = await finalizeDay(db, g, date, now);
       if (r) done.push({ groupId: g.id, date, outcome: r.outcome });
+      else break; // Retry this day next run; never skip over an unresolved API day.
     }
   }
   return done;

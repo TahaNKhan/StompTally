@@ -4,7 +4,7 @@ import { daysInMonth } from "./dates";
 import type { Group } from "./service";
 
 export type MemberRow = { id: string; name: string; email: string; role: string; joined_date: string; left_date: string | null };
-export type EntryRow = { user_id: string; date: string; steps: number; updated_at: number };
+export type EntryRow = { user_id: string; date: string; steps: number; updated_at: number; raw_steps?: number | null; game_steps?: number | null; source?: string };
 export type ClaimRow = { user_id: string; date: string; status: string };
 export type ResultRow = { date: string; min_steps: number | null; loser_ids: string; outcome: string };
 export type PenaltyRow = { user_id: string; date: string; cents: number };
@@ -26,6 +26,9 @@ export function buildDay(date: string, members: MemberRow[], entries: EntryRow[]
       userId: m.id,
       name: m.name,
       steps: byUser.get(m.id)?.steps ?? null,
+      rawSteps: byUser.get(m.id)?.raw_steps ?? null,
+      gameSteps: byUser.get(m.id)?.game_steps ?? null,
+      source: byUser.get(m.id)?.source ?? null,
       updatedAt: byUser.get(m.id)?.updated_at ?? null,
       skipClaimed: claimSet.has(m.id),
     }))
@@ -50,7 +53,7 @@ export function buildMonth(
   const results = allResults.filter((r) => inMonth(r.date, month));
   const penalties = allPenalties.filter((p) => inMonth(p.date, month));
   const skips = allClaims.filter((c) => inMonth(c.date, month));
-  const steps = allEntries.filter((e) => inMonth(e.date, month)).map((e) => ({ user_id: e.user_id, date: e.date, steps: e.steps }));
+  const steps = allEntries.filter((e) => inMonth(e.date, month)).map((e) => ({ user_id: e.user_id, date: e.date, steps: e.steps, rawSteps: e.raw_steps ?? null, gameSteps: e.game_steps ?? null }));
   const resultBy = new Map(results.map((r) => [r.date, r]));
   const totals = members
     .map((m) => ({

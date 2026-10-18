@@ -84,7 +84,7 @@ try {
   await show(/Logging you in|Loading your page/);
   finish(redirectGate);
   await page.waitForURL(`${base}/`);
-  await page.getByRole("heading", { name: "Log your steps" }).waitFor();
+  await page.getByText("Meal pot", { exact: true }).waitFor();
   await clear();
   pass("Real login shows loading through POST and dashboard redirect, then clears");
 
@@ -98,12 +98,12 @@ try {
   await clear();
   pass("Tab navigation shows a loading screen and clears on arrival");
 
-  await page.locator('nav a[href="/"]').click();
-  await page.waitForURL(`${base}/`);
+  await page.locator('nav a[href="/me"]').click();
+  await page.waitForURL(`${base}/me`);
   await clear();
   let form = page.locator("form").filter({ has: page.locator('input[name="steps"]') });
   await form.locator('input[name="steps"]').fill("14001");
-  g = block((r) => r.method() === "POST" && new URL(r.url()).pathname === "/_.data");
+  g = block((r) => r.method() === "POST" && new URL(r.url()).pathname === "/me.data");
   await form.getByRole("button").click();
   await g.arrived;
   await show(/Saving your steps/);
@@ -117,7 +117,7 @@ try {
   form = page.locator("form").filter({ has: page.locator('input[name="steps"]') });
   await form.evaluate((el) => { el.noValidate = true; });
   await form.locator('input[name="steps"]').fill("-1");
-  g = block((r) => r.method() === "POST" && new URL(r.url()).pathname === "/_.data");
+  g = block((r) => r.method() === "POST" && new URL(r.url()).pathname === "/me.data");
   await form.getByRole("button").click();
   await g.arrived;
   await show(/Saving your steps/);
@@ -128,6 +128,9 @@ try {
   pass("Server error clears the loading screen and preserves the input for correction");
 
   // Background revalidation is silent: exercise the real 60-second interval using the browser clock.
+  await page.locator('nav a[href="/"]').click();
+  await page.waitForURL(`${base}/`);
+  await clear();
   await page.clock.install();
   await page.reload({ waitUntil: "networkidle" });
   g = block((r) => r.method() === "GET" && new URL(r.url()).pathname === "/_.data");

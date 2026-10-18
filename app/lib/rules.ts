@@ -42,7 +42,8 @@ export function computeDay(input: DayInput, rules: Rules): DayResult {
     };
   }
 
-  const stepsOf = (id: string) => Math.max(0, Math.floor(input.steps[id] ?? 0));
+  // Stompers item effects can produce half steps; preserve them for ranks/ties.
+  const stepsOf = (id: string) => Math.max(0, input.steps[id] ?? 0);
   const minSteps = Math.min(...members.map(stepsOf));
   const loserIds = minSteps < rules.thresholdSteps ? members.filter((id) => stepsOf(id) === minSteps) : [];
 

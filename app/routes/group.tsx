@@ -2,6 +2,7 @@ import { redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/group";
 import { Avatar, ErrorNote, Notice } from "../components/ui";
 import { PendingButton } from "../components/pending";
+import { ManualHistory } from "../components/manual-history";
 import { db, formAction, memberOr, origin, rateLimit, requireMember, sid } from "../lib/http.server";
 import { createInvite, recordSteps, removeMember, revokeInvite, updateGroup } from "../lib/service";
 import { inviteEmail, sendMail } from "../lib/mail.server";
@@ -54,7 +55,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function GroupPage() {
-  const { group, members, invites, today } = useLoaderData<typeof loader>();
+  const { group, members, invites, today, manualHistory } = useLoaderData<typeof loader>();
   const inv = useFetcher<typeof action>();
   const settings = useFetcher<typeof action>();
   const correct = useFetcher<typeof action>();
@@ -117,6 +118,8 @@ export default function GroupPage() {
         {corrected && <Notice>Set {corrected.steps.toLocaleString("en-US")} steps for {corrected.date}.</Notice>}
         <ErrorNote error={correct.data && "error" in correct.data ? correct.data.error : null} />
       </section>
+
+      <ManualHistory entries={manualHistory} timezone={group.timezone} showNames />
 
       <section className="card p-5 rise">
         <h2 className="font-display text-lg font-bold">Rules</h2>

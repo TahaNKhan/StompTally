@@ -8,6 +8,8 @@ function sqliteDb(): Db {
   const d = new DatabaseSync(":memory:");
   d.exec("PRAGMA foreign_keys = ON");
   d.exec(readFileSync(new URL("../../migrations/0001_init.sql", import.meta.url), "utf8"));
+  d.exec(readFileSync(new URL("../../migrations/0003_stompers.sql", import.meta.url), "utf8"));
+  d.exec(readFileSync(new URL("../../migrations/0004_manual_step_entries.sql", import.meta.url), "utf8"));
   const norm = (p: unknown[]) => p.map((v) => (v === undefined ? null : v)) as any[];
   return {
     async all(sql, ...p) { return d.prepare(sql).all(...norm(p)) as any; },

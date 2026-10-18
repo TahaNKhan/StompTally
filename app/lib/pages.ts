@@ -24,13 +24,17 @@ function jsonRows(sql: string, columns: string[]) {
 }
 const CTX_COLUMNS = ["id", "email", "name", "role", "joined_date", "g_id", "g_name", "g_timezone", "g_threshold", "g_penalty", "g_skips", "g_start"];
 const MEMBER_COLUMNS = ["id", "name", "email", "role", "joined_date", "left_date"];
-const ENTRY_COLUMNS = ["user_id", "date", "steps", "updated_at"];
+const ENTRY_COLUMNS = ["user_id", "date", "steps", "updated_at", "raw_steps", "game_steps", "source"];
 const CLAIM_COLUMNS = ["user_id", "date", "status"];
 const RESULT_COLUMNS = ["date", "min_steps", "loser_ids", "outcome"];
 const PENALTY_COLUMNS = ["user_id", "date", "cents"];
 const SETTLEMENT_COLUMNS = ["month", "note", "settled_at"];
 const HISTORY_COLUMNS = ["month", "cents", "losses", "note", "settled_at"];
 const INVITE_COLUMNS = ["id", "email", "expires_at", "created_at"];
+const MANUAL_COLUMNS = ["id", "user_id", "name", "actor_name", "date", "steps", "previous_steps", "previous_source", "raw_steps", "game_steps", "created_at"];
+export type ManualStepLog = { id: number; user_id: string; name: string; actor_name: string; date: string; steps: number; previous_steps: number | null; previous_source: string | null; raw_steps: number | null; game_steps: number | null; created_at: number };
+const MANUAL_LOG = `SELECT e.*,u.name,a.name AS actor_name FROM manual_step_entries e
+  JOIN users u ON u.id=e.user_id JOIN users a ON a.id=e.actor_id`;
 
 // ?1 = sha256(session id), ?2 = now (ms). Extra params start at ?3.
 const AUTH_CTE = `WITH me AS (
@@ -51,7 +55,7 @@ const CTX_SELECT = `SELECT me.id, me.email, me.name, ctx.role, ctx.joined_date,
 const MEMBERS = `SELECT u.id, u.name, u.email, m.role, m.joined_date, m.left_date
   FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.group_id = ${GID} ORDER BY m.joined_date, u.name`;
 // ?3 = from date (inclusive), ?4 = to date (exclusive)
-const ENTRIES = `SELECT e.user_id, e.date, e.steps, e.updated_at FROM step_entries e
+const ENTRIES = `SELECT e.user_id, e.date, e.steps, e.updated_at, e.raw_steps, e.game_steps, e.source FROM step_entries e
   WHERE e.date >= ?3 AND e.date < ?4 AND e.user_id IN (SELECT user_id FROM memberships WHERE group_id = ${GID})`;
 const CLAIMS = `SELECT user_id, date, status FROM skip_claims WHERE group_id = ${GID} AND date >= ?3 AND date < ?4`;
 const RESULTS = `SELECT date, min_steps, loser_ids, outcome FROM day_results WHERE group_id = ${GID} AND date >= ?3 AND date < ?4`;
@@ -181,12 +185,26 @@ export async function loadHistory(db: Db, sid: string | null | undefined, now = 
 }
 
 export async function loadMe(db: Db, sid: string | null | undefined, now = Date.now()) {
-  const a = await runAuthed(db, sid, now);
+  const u = utcDate(now), lo = addDays(u, -2), hi = addDays(u, 2);
+  const a = await runAuthed(db, sid, now, q => [q(
+    "SELECT stompers_uid,username,last_attempt_at,last_synced_at,last_error FROM stompers_accounts WHERE user_id=(SELECT id FROM me)",
+    ["stompers_uid", "username", "last_attempt_at", "last_synced_at", "last_error"],
+  ), q(`SELECT user_id,date,steps,updated_at FROM step_entries WHERE user_id=(SELECT id FROM me) AND date>=?3 AND date<?4`,
+    ["user_id", "date", "steps", "updated_at"], lo, hi),
+    q(RESULTS, RESULT_COLUMNS, lo, hi),
+    q(`${MANUAL_LOG} WHERE e.user_id=(SELECT id FROM me) AND e.group_id=${GID} ORDER BY e.created_at DESC,e.id DESC LIMIT 20`, MANUAL_COLUMNS),
+  ]);
   if (!a.ctx) return { auth: a, page: null };
   const g = a.ctx.group;
+  const today = localDate(new Date(now), g.timezone), yesterday = addDays(today, -1);
+  const entries = a.rows[1] as EntryRow[], results = a.rows[2] as ResultRow[];
+  const manualDay = (date: string) => ({ date, steps: entries.find(e => e.date === date)?.steps ?? null, finalized: results.some(r => r.date === date) });
   return {
     auth: a,
-    page: { shell: shellOf(a.ctx), user: a.ctx.user, rules: { threshold: g.threshold_steps, penalty: g.penalty_cents, skips: g.skips_per_month } },
+    page: { shell: shellOf(a.ctx), user: a.ctx.user, timezone: g.timezone,
+      stompers: (a.rows[0][0] ?? null) as { stompers_uid: string; username: string | null; last_attempt_at: number | null; last_synced_at: number | null; last_error: string | null } | null,
+      today: manualDay(today), yesterday: manualDay(yesterday), manualHistory: a.rows[3] as ManualStepLog[],
+      rules: { threshold: g.threshold_steps, penalty: g.penalty_cents, skips: g.skips_per_month } },
   };
 }
 
@@ -197,9 +215,10 @@ export async function loadGroupAdmin(db: Db, sid: string | null | undefined, now
     q(`SELECT id, email, expires_at, created_at FROM invites
        WHERE group_id = ${GID} AND (SELECT role FROM ctx) = 'admin'
        AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?2 ORDER BY created_at DESC`, INVITE_COLUMNS),
+    q(`${MANUAL_LOG} WHERE e.group_id=${GID} AND (SELECT role FROM ctx)='admin' ORDER BY e.created_at DESC,e.id DESC LIMIT 50`, MANUAL_COLUMNS),
   ]);
   if (!a.ctx) return { auth: a, page: null };
-  const [members, invites] = a.rows as [MemberRow[], { id: string; email: string; expires_at: number; created_at: number }[]];
+  const [members, invites, manualHistory] = a.rows as [MemberRow[], { id: string; email: string; expires_at: number; created_at: number }[], ManualStepLog[]];
   return {
     auth: a,
     page: {
@@ -208,6 +227,7 @@ export async function loadGroupAdmin(db: Db, sid: string | null | undefined, now
       group: a.ctx.group,
       members: members.filter((m) => m.left_date === null),
       invites,
+      manualHistory,
       today: localDate(new Date(now), a.ctx.group.timezone),
     },
   };
