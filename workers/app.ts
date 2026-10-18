@@ -1,6 +1,7 @@
 import { createRequestHandler } from "react-router";
 import { d1Db } from "../app/lib/db";
 import { runStompersSchedule } from "../app/lib/stompers.server";
+import { sendMail, stompersFailureEmail } from "../app/lib/mail.server";
 import { requestDb } from "../app/lib/request-db.server";
 
 const requestHandler = createRequestHandler(
@@ -33,7 +34,12 @@ export default {
 
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(
-      runStompersSchedule(d1Db(env.DB)).then((done) => {
+      runStompersSchedule(d1Db(env.DB), Date.now(), undefined, async (alerts) => {
+        for (const alert of alerts) {
+          const mail = stompersFailureEmail(`${env.APP_URL}/group`, alert.groupName, alert.members);
+          for (const email of alert.adminEmails) await sendMail(env, email, mail.subject, mail.html, mail.text);
+        }
+      }).then((done) => {
         console.log("stompers.schedule", JSON.stringify(done));
       }),
     );

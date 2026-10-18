@@ -86,3 +86,16 @@ export function buildMonth(
     names: Object.fromEntries(members.map((m) => [m.id, m.name])),
   };
 }
+
+/** Failures in a row before the Today board warns that a friend's numbers may be stale. */
+export const STALE_SYNC_FAILURES = 3;
+
+export type SyncState = { label: string; tone: "ok" | "warn" } | null;
+
+/** One-line Stompers freshness for a member. Null when they have no linked account. */
+export function describeSync(sync: { syncedAt: number | null; failures: number } | undefined, ago: (ts: number | null) => string): SyncState {
+  if (!sync) return null;
+  const synced = sync.syncedAt ? `Stompers synced ${ago(sync.syncedAt)}` : "Waiting for first Stompers pull";
+  if (sync.failures >= STALE_SYNC_FAILURES) return { label: `${synced} · last ${sync.failures} pulls failed, numbers may be stale`, tone: "warn" };
+  return { label: synced, tone: "ok" };
+}

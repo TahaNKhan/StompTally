@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { Db } from "./db";
-import { gameSample, linkStompers, readStompers, runStompersSchedule, syncStompers, unlinkStompers, type ApiRead } from "./stompers.server";
+import { FAILURE_ALERT_THRESHOLD, findFailureAlerts, gameSample, linkStompers, readStompers, runStompersSchedule, syncStompers, unlinkStompers, type ApiRead } from "./stompers.server";
 import { AppError, bootstrap, createSession, finalizeDue, getMembership, recordSteps } from "./service";
 import { loadMe, loadToday } from "./pages";
 import { computeDay } from "./rules";
@@ -174,6 +174,40 @@ describe("Stompers links and imports", () => {
     expect(await syncStompers(f.db, NOW, f.read, { groupId: other!.id })).toMatchObject([{ userId: f.user.id, saved: 1, ok: true }]);
     expect(await f.db.first("SELECT steps FROM step_entries")).toMatchObject({ steps: 1578.5 });
   });
+  it("counts consecutive failed pulls and resets on success", async () => {
+    const f = await ready();
+    const broken: ApiRead = async () => { throw new AppError(502, "Could not read Stompers. Try again later."); };
+    for (let i = 0; i < 2; i++) await syncStompers(f.db, NOW + i, broken);
+    expect(await f.db.first("SELECT consecutive_failures FROM stompers_accounts")).toEqual({ consecutive_failures: 2 });
+    await syncStompers(f.db, NOW + 2, f.read);
+    expect(await f.db.first("SELECT consecutive_failures,alerted_at FROM stompers_accounts")).toEqual({ consecutive_failures: 0, alerted_at: null });
+  });
+  it("emails admins once per outage and again after recovery and a new outage", async () => {
+    const f = await ready();
+    const broken: ApiRead = async () => { throw new AppError(502, "Could not read Stompers. Try again later."); };
+    const notify = vi.fn(async () => {});
+    for (let i = 0; i < FAILURE_ALERT_THRESHOLD - 1; i++) await runStompersSchedule(f.db, NOW + i, broken, notify);
+    expect(notify).not.toHaveBeenCalled();
+    const third = await runStompersSchedule(f.db, NOW + 10, broken, notify);
+    expect(third.alerted).toBe(1);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0][0]).toMatchObject([{ groupName: "Friends", adminEmails: ["u@example.com"], members: [{ username: "user", failures: FAILURE_ALERT_THRESHOLD }] }]);
+    await runStompersSchedule(f.db, NOW + 20, broken, notify);
+    expect(notify).toHaveBeenCalledTimes(1);
+    await runStompersSchedule(f.db, NOW + 30, f.read, notify);
+    for (let i = 0; i < FAILURE_ALERT_THRESHOLD; i++) await runStompersSchedule(f.db, NOW + 40 + i, broken, notify);
+    expect(notify).toHaveBeenCalledTimes(2);
+  });
+  it("retries the alert next run when delivery fails, and never blocks locking", async () => {
+    const f = await ready();
+    const broken: ApiRead = async () => { throw new AppError(502, "x"); };
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const notify = vi.fn(async () => { throw new Error("mail down"); });
+    for (let i = 0; i < FAILURE_ALERT_THRESHOLD; i++) await runStompersSchedule(f.db, NOW + i, broken, notify);
+    expect(await f.db.first("SELECT alerted_at FROM stompers_accounts")).toEqual({ alerted_at: null });
+    expect(await findFailureAlerts(f.db)).toHaveLength(1);
+    spy.mockRestore();
+  });
   it("keeps known game IDs when relinking the same account", async () => {
     const f = await ready();
     await syncStompers(f.db, NOW, f.read);
@@ -207,4 +241,12 @@ it("rejects redirects rather than following them", async () => {
     await expect(readStompers("/users/getProfileByUid", { uid: "user" })).rejects.toThrow(/HTTP 302/);
     expect(mock).toHaveBeenCalledTimes(1);
   } finally { vi.unstubAllGlobals(); }
+});
+
+it("shows each member's sync status on the Today page data", async () => {
+  const f = await ready();
+  await syncStompers(f.db, NOW, f.read);
+  const session = await createSession(f.db, f.user.id, NOW);
+  const { page } = await loadToday(f.db, session, NOW + 1000);
+  expect(page!.sync[f.user.id]).toEqual({ syncedAt: NOW, failures: 0 });
 });

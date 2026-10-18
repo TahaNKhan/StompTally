@@ -63,6 +63,11 @@ const PENALTIES = `SELECT user_id, date, cents FROM penalties WHERE group_id = $
 // ?3 = from month 'YYYY-MM' (inclusive), ?4 = to month (exclusive)
 const SETTLEMENTS = `SELECT month, note, settled_at FROM settlements WHERE group_id = ${GID} AND month >= ?3 AND month < ?4`;
 
+const SYNC_COLUMNS = ["user_id", "last_synced_at", "consecutive_failures"];
+type SyncRow = { user_id: string; last_synced_at: number | null; consecutive_failures: number };
+const SYNC_STATUS = `SELECT user_id, last_synced_at, consecutive_failures FROM stompers_accounts
+  WHERE user_id IN (SELECT user_id FROM memberships WHERE group_id = ${GID} AND left_date IS NULL)`;
+
 export type Authed = { user: User | null; ctx: Ctx | null; rows: any[][] };
 
 /** Auth and independently aggregated page datasets in ONE SQL statement and ONE network call. */
@@ -115,9 +120,9 @@ export async function loadToday(db: Db, sid: string | null | undefined, now = Da
   const u = utcDate(now);
   const lo = `${monthOf(addDays(u, -2))}-01`;
   const hi = addDays(u, 2);
-  const a = await runAuthed(db, sid, now, (q) => [q(MEMBERS, MEMBER_COLUMNS), q(ENTRIES, ENTRY_COLUMNS, lo, hi), q(CLAIMS, CLAIM_COLUMNS, lo, hi), q(RESULTS, RESULT_COLUMNS, lo, hi), q(PENALTIES, PENALTY_COLUMNS, lo, hi)]);
+  const a = await runAuthed(db, sid, now, (q) => [q(MEMBERS, MEMBER_COLUMNS), q(ENTRIES, ENTRY_COLUMNS, lo, hi), q(CLAIMS, CLAIM_COLUMNS, lo, hi), q(RESULTS, RESULT_COLUMNS, lo, hi), q(PENALTIES, PENALTY_COLUMNS, lo, hi), q(SYNC_STATUS, SYNC_COLUMNS)]);
   if (!a.ctx) return { auth: a, page: null };
-  const [members, entries, claims, results, penalties] = a.rows as [MemberRow[], EntryRow[], ClaimRow[], ResultRow[], PenaltyRow[]];
+  const [members, entries, claims, results, penalties, syncRows] = a.rows as [MemberRow[], EntryRow[], ClaimRow[], ResultRow[], PenaltyRow[], SyncRow[]];
   const { group, user } = a.ctx;
   const today = localDate(new Date(now), group.timezone);
   const yesterday = addDays(today, -1);
@@ -139,6 +144,7 @@ export async function loadToday(db: Db, sid: string | null | undefined, now = Da
       skipsUsedYesterday: Object.fromEntries(yesterdayDay.rows.map((r) => [r.userId, used(r.userId, monthOf(yesterday))])),
       totals: mv.totals,
       pot: mv.potCents,
+      sync: Object.fromEntries(syncRows.map((r) => [r.user_id, { syncedAt: r.last_synced_at, failures: r.consecutive_failures }])),
       now,
     },
   };

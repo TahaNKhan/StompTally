@@ -51,3 +51,16 @@ export function confirmInviteEmail(link: string, group: string) {
     text: `Confirm and join ${group}: ${link}`,
   };
 }
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+export function stompersFailureEmail(link: string, group: string, failing: { name: string; username: string | null; failures: number; error: string | null }[]) {
+  const label = (f: (typeof failing)[number]) => `${f.name}${f.username ? ` (@${f.username})` : ""}`;
+  const lines = failing.map((f) => `${label(f)}: ${f.failures} failed pulls in a row${f.error ? ` (${f.error})` : ""}`);
+  const items = failing.map((f, i) => `<li>${escapeHtml(lines[i])}</li>`).join("");
+  return {
+    subject: `Stompers steps are not syncing for ${group}`,
+    html: layout("Stompers pull is failing", `Steps could not be pulled for:<ul style="margin:8px 0 0;padding-left:18px">${items}</ul>Their counts may be stale. Poll again or fix the entry in the group admin.`, { href: link, label: "Open group admin" }),
+    text: `Stompers steps are not syncing for ${group}:\n${lines.join("\n")}\n\nOpen group admin: ${link}`,
+  };
+}

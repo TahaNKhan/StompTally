@@ -50,7 +50,8 @@ export async function linkStompers(db: Db, user: User, identity: string, kind: s
     stmt("DELETE FROM stompers_games WHERE user_id = ? AND EXISTS (SELECT 1 FROM stompers_accounts WHERE user_id=? AND stompers_uid<>?)", user.id, user.id, profile.uid),
     stmt(`INSERT INTO stompers_accounts (user_id, stompers_uid, username, updated_at) VALUES (?, ?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET stompers_uid=excluded.stompers_uid, username=excluded.username,
-      updated_at=excluded.updated_at, last_attempt_at=NULL, last_synced_at=NULL, last_error=NULL`,
+      updated_at=excluded.updated_at, last_attempt_at=NULL, last_synced_at=NULL, last_error=NULL,
+      consecutive_failures=0, alerted_at=NULL`,
       user.id, profile.uid, typeof profile.username === "string" ? profile.username : null, now),
   ]);
 }
@@ -123,9 +124,12 @@ async function syncAccount(db: Db, account: Account, now: number, read: ApiRead)
     }
     if (!saved && !errors.length) errors.push("No steps found for today or yesterday.");
   } catch (error) { recordError(error); }
-  await db.run(`UPDATE stompers_accounts SET last_attempt_at=?, last_synced_at=CASE WHEN ? THEN ? ELSE last_synced_at END, last_error=?
+  const succeeded = saved > 0 ? 1 : 0;
+  // A pull only counts as failed when it saved nothing; a partial error with fresh counts is still healthy.
+  await db.run(`UPDATE stompers_accounts SET last_attempt_at=?, last_synced_at=CASE WHEN ? THEN ? ELSE last_synced_at END, last_error=?,
+    consecutive_failures=CASE WHEN ? THEN 0 ELSE consecutive_failures+1 END, alerted_at=CASE WHEN ? THEN NULL ELSE alerted_at END
     WHERE user_id=? AND stompers_uid=? AND updated_at=? AND (last_attempt_at IS NULL OR last_attempt_at<=?)`,
-    now, saved > 0 ? 1 : 0, now, errors.length ? errors.join(" ").slice(0, 500) : null, account.user_id, account.stompers_uid, account.updated_at, now);
+    now, succeeded, now, errors.length ? errors.join(" ").slice(0, 500) : null, succeeded, succeeded, account.user_id, account.stompers_uid, account.updated_at, now);
   return { userId: account.user_id, saved, ok: errors.length === 0 };
 }
 
@@ -142,9 +146,56 @@ export async function syncStompers(db: Db, now = Date.now(), read = readStompers
   return results;
 }
 
-/** Pull first; only then lock due days against refreshed counts. */
-export async function runStompersSchedule(db: Db, now = Date.now(), read = readStompers) {
+/** Alert admins after this many failed pulls in a row (6 hours at the 2-hour schedule). */
+export const FAILURE_ALERT_THRESHOLD = 3;
+
+export type FailureAlert = {
+  groupName: string;
+  adminEmails: string[];
+  members: { userId: string; name: string; username: string | null; failures: number; error: string | null }[];
+};
+
+/** Accounts that crossed the threshold and have not been reported yet, grouped for one email per group. */
+export async function findFailureAlerts(db: Db): Promise<FailureAlert[]> {
+  const failing = await db.all<{ group_id: string; group_name: string; user_id: string; name: string; username: string | null; failures: number; error: string | null }>(
+    `SELECT g.id AS group_id, g.name AS group_name, a.user_id, u.name, a.username, a.consecutive_failures AS failures, a.last_error AS error
+     FROM stompers_accounts a JOIN users u ON u.id=a.user_id
+     JOIN memberships m ON m.user_id=a.user_id AND m.left_date IS NULL JOIN groups g ON g.id=m.group_id
+     WHERE a.consecutive_failures>=? AND a.alerted_at IS NULL ORDER BY g.id, u.name`, FAILURE_ALERT_THRESHOLD);
+  const alerts: FailureAlert[] = [];
+  for (const groupId of new Set(failing.map(f => f.group_id))) {
+    const rows = failing.filter(f => f.group_id === groupId);
+    const admins = await db.all<{ email: string }>(
+      "SELECT u.email FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.group_id=? AND m.role='admin' AND m.left_date IS NULL", groupId);
+    if (!admins.length) continue;
+    alerts.push({ groupName: rows[0].group_name, adminEmails: admins.map(a => a.email),
+      members: rows.map(r => ({ userId: r.user_id, name: r.name, username: r.username, failures: r.failures, error: r.error })) });
+  }
+  return alerts;
+}
+
+async function markAlerted(db: Db, userIds: string[], now: number) {
+  await db.batch(userIds.map(id => stmt("UPDATE stompers_accounts SET alerted_at=? WHERE user_id=? AND alerted_at IS NULL", now, id)));
+}
+
+/** Pull first; only then lock due days against refreshed counts. Alerts never block locking. */
+export async function runStompersSchedule(db: Db, now = Date.now(), read = readStompers, notify?: (alerts: FailureAlert[]) => Promise<void>) {
   const synced = await syncStompers(db, now, read);
   const { finalizeDue } = await import("./service");
-  return { synced, finalized: await finalizeDue(db, now) };
+  const finalized = await finalizeDue(db, now);
+  let alerted = 0;
+  if (notify) {
+    try {
+      const alerts = await findFailureAlerts(db);
+      if (alerts.length) {
+        await notify(alerts);
+        // Marked only after delivery, so a mail outage retries on the next run.
+        await markAlerted(db, alerts.flatMap(a => a.members.map(m => m.userId)), now);
+        alerted = alerts.reduce((n, a) => n + a.members.length, 0);
+      }
+    } catch (error) {
+      console.error("stompers.alert_failed", JSON.stringify({ reason: error instanceof Error ? error.message : String(error) }));
+    }
+  }
+  return { synced, finalized, alerted };
 }

@@ -7,6 +7,7 @@ import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server
 import { AppError, cancelSkip, claimSkip } from "../lib/service";
 import { formatDay } from "../lib/dates";
 import { loadToday } from "../lib/pages";
+import { describeSync } from "../lib/views";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const result = await loadToday(db(), sid(request));
@@ -28,8 +29,9 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 type Day = Awaited<ReturnType<typeof loader>>["today"];
+type Sync = Awaited<ReturnType<typeof loader>>["sync"];
 
-function Board({ day, me, threshold, penalty, skips, skipsUsed, now, label, live }: { day: Day; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean }) {
+function Board({ day, sync, me, threshold, penalty, skips, skipsUsed, now, label, live }: { day: Day; sync: Sync; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean }) {
   const fetcher = useFetcher<typeof action>();
   const max = Math.max(threshold * 1.5, ...day.rows.map((r) => r.steps ?? 0));
   const losers = new Set(day.preview.loserIds);
@@ -78,6 +80,10 @@ function Board({ day, me, threshold, penalty, skips, skipsUsed, now, label, live
                   <div className="text-xs text-muted">
                     {r.steps == null ? "not logged yet · counts as 0" : `${r.source === "manual" ? "manual entry" : "logged"} ${timeAgo(r.updatedAt, now)}`} · {skips - (skipsUsed[r.userId] ?? 0)}/{skips} skips left
                   </div>
+                  {(() => {
+                    const state = describeSync(sync[r.userId], (ts) => timeAgo(ts, now));
+                    return state && <div className={`mt-1 text-xs ${state.tone === "warn" ? "text-amber" : "text-muted"}`}>{state.tone === "warn" && "⚠️ "}{state.label}</div>;
+                  })()}
                   {r.rawSteps != null && r.gameSteps != null && <div className="mt-1 text-xs text-muted">
                     Walking {fmtSteps(r.rawSteps)} · Game {fmtSteps(r.gameSteps)}{r.source === "stompers" ? " · Higher count used" : r.source === "admin" ? " · Admin override" : " · Manual entry"}
                   </div>}
@@ -159,9 +165,9 @@ export default function Today() {
       </div>
 
       {!d.yesterday.finalized && d.yesterday.rows.length > 0 && (
-        <Board day={d.yesterday} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedYesterday} now={d.now} label="Yesterday" live={false} />
+        <Board day={d.yesterday} sync={d.sync} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedYesterday} now={d.now} label="Yesterday" live={false} />
       )}
-      <Board day={d.today} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live />
+      <Board day={d.today} sync={d.sync} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live />
     </div>
   );
 }
