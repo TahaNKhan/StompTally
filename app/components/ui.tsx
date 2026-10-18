@@ -1,6 +1,7 @@
 // Shared UI bits.
 import { Form, Link, NavLink, useNavigation } from "react-router";
 import { PendingButton } from "./pending";
+import { InstallBanner } from "./install-banner";
 
 const PALETTE = ["#b6f35c", "#7cc4ff", "#ffc857", "#ff8fab", "#c4a7ff", "#5eead4", "#fdba74"];
 
@@ -68,6 +69,7 @@ export function Shell({ children, user, groupName, isAdmin }: { children: React.
           </Link>
         </div>
       </header>
+      <InstallBanner />
       <main className="mt-2">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto grid max-w-2xl grid-cols-4">
