@@ -129,10 +129,13 @@ async function syncAccount(db: Db, account: Account, now: number, read: ApiRead)
   return { userId: account.user_id, saved, ok: errors.length === 0 };
 }
 
-export async function syncStompers(db: Db, now = Date.now(), read = readStompers, userId?: string) {
+export type SyncScope = { userId?: string; groupId?: string };
+
+export async function syncStompers(db: Db, now = Date.now(), read = readStompers, scope: SyncScope = {}) {
+  const filters = [scope.userId && ["a.user_id=?", scope.userId], scope.groupId && ["g.id=?", scope.groupId]].filter(Boolean) as [string, string][];
   const accounts = await db.all<Account>(`SELECT a.*,g.timezone,g.start_date,m.joined_date FROM stompers_accounts a
     JOIN memberships m ON m.user_id=a.user_id AND m.left_date IS NULL JOIN groups g ON g.id=m.group_id
-    ${userId ? "WHERE a.user_id=?" : ""}`, ...(userId ? [userId] : []));
+    ${filters.length ? `WHERE ${filters.map(([sql]) => sql).join(" AND ")}` : ""}`, ...filters.map(([, value]) => value));
   const results = [];
   // Two users at a time bounds concurrent fetches and keeps individual failures isolated.
   for (let i = 0; i < accounts.length; i += 2) results.push(...await Promise.all(accounts.slice(i, i + 2).map(a => syncAccount(db, a, now, read))));

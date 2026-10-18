@@ -28,7 +28,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (f.get("intent") === "stompers") {
       await rateLimit(request, "stompers.link");
       await linkStompers(db(), user, String(f.get("identity") ?? ""), String(f.get("kind") ?? "username"));
-      await syncStompers(db(), Date.now(), undefined, user.id);
+      await syncStompers(db(), Date.now(), undefined, { userId: user.id });
       return { linked: true };
     }
     if (f.get("intent") === "unlink-stompers") {

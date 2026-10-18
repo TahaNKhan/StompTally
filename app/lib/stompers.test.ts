@@ -166,6 +166,14 @@ describe("Stompers links and imports", () => {
     });
     expect(await f.db.first("SELECT * FROM step_entries")).toBeNull();
   });
+  it("polls only the accounts in the requested group", async () => {
+    const f = await ready();
+    const other = await f.db.first<{ id: string }>("SELECT id FROM groups");
+    expect(await syncStompers(f.db, NOW, f.read, { groupId: "no-such-group" })).toEqual([]);
+    expect(await f.db.first("SELECT * FROM step_entries")).toBeNull();
+    expect(await syncStompers(f.db, NOW, f.read, { groupId: other!.id })).toMatchObject([{ userId: f.user.id, saved: 1, ok: true }]);
+    expect(await f.db.first("SELECT steps FROM step_entries")).toMatchObject({ steps: 1578.5 });
+  });
   it("keeps known game IDs when relinking the same account", async () => {
     const f = await ready();
     await syncStompers(f.db, NOW, f.read);

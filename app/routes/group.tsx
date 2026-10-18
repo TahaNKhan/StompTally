@@ -8,6 +8,7 @@ import { createInvite, recordSteps, removeMember, revokeInvite, updateGroup } fr
 import { inviteEmail, sendMail } from "../lib/mail.server";
 import { env } from "cloudflare:workers";
 import { addDays } from "../lib/dates";
+import { syncStompers } from "../lib/stompers.server";
 import { loadGroupAdmin } from "../lib/pages";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -31,6 +32,10 @@ export async function action({ request }: Route.ActionArgs) {
         source: "admin",
       });
       return { ok: intent, corrected: r };
+    }
+    if (intent === "poll") {
+      await rateLimit(request, "stompers-poll");
+      return { polled: await syncStompers(db(), Date.now(), undefined, { groupId: group.id }) };
     }
     if (intent === "invite") {
       await rateLimit(request, "invite-send");
@@ -59,6 +64,9 @@ export default function GroupPage() {
   const inv = useFetcher<typeof action>();
   const settings = useFetcher<typeof action>();
   const correct = useFetcher<typeof action>();
+  const poll = useFetcher<typeof action>();
+  const polled = poll.data && "polled" in poll.data ? poll.data.polled : null;
+  const failedNames = polled?.filter((r) => !r.ok).map((r) => members.find((m) => m.id === r.userId)?.name ?? "Unknown");
   const invited = inv.data && "invited" in inv.data ? inv.data : null;
   const corrected = correct.data && "corrected" in correct.data ? correct.data.corrected : null;
 
@@ -117,6 +125,23 @@ export default function GroupPage() {
         </correct.Form>
         {corrected && <Notice>Set {corrected.steps.toLocaleString("en-US")} steps for {corrected.date}.</Notice>}
         <ErrorNote error={correct.data && "error" in correct.data ? correct.data.error : null} />
+      </section>
+
+      <section className="card p-5 rise">
+        <h2 className="font-display text-lg font-bold">Poll Stompers</h2>
+        <p className="mt-1 text-sm text-muted">Pull today's and yesterday's steps now instead of waiting for the 2-hour schedule. Manual and admin entries stay as they are.</p>
+        <poll.Form method="post" className="mt-4">
+          <input type="hidden" name="intent" value="poll" />
+          <PendingButton className="btn-primary w-full" busy={poll.state !== "idle"} pendingLabel="Polling…">Poll now</PendingButton>
+        </poll.Form>
+        {polled && !polled.length && <Notice>No members have linked a Stompers account.</Notice>}
+        {polled && polled.length > 0 && (
+          <Notice>
+            Polled {polled.length} {polled.length === 1 ? "account" : "accounts"}: {polled.filter((r) => r.ok).length} ok
+            {failedNames && failedNames.length > 0 && `, failed: ${failedNames.join(", ")}`}.
+          </Notice>
+        )}
+        <ErrorNote error={poll.data && "error" in poll.data ? poll.data.error : null} />
       </section>
 
       <ManualHistory entries={manualHistory} timezone={group.timezone} showNames />
