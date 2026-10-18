@@ -54,7 +54,7 @@ function Board({ day, sync, me, threshold, penalty, skips, skipsUsed, now, label
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lime" /> Live · projected
           </span>
         ) : (
-          <span className="rounded-full border border-amber/30 bg-amber/10 px-3 py-1 text-xs font-medium text-amber">Final at noon</span>
+          <span className="rounded-full border border-amber/30 bg-amber/10 px-3 py-1 text-xs font-medium text-amber">Final at 12:05 AM</span>
         )}
       </div>
 

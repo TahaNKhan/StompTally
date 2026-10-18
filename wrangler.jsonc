@@ -22,8 +22,9 @@
 			"migrations_dir": "migrations"
 		}
 	],
-	// Every two hours; sync counts before finalizing days past noon-next-day.
-	"triggers": { "crons": ["5 */2 * * *"] },
+	// Every two hours, plus 07:05 UTC = 00:05 PDT. 00:05 PST (08:05 UTC) is already an even hour.
+	// Each run syncs counts first, then finalizes days whose 00:05-next-day lock has passed.
+	"triggers": { "crons": ["5 */2 * * *", "5 7 * * *"] },
 	"ratelimits": [
 		{ "name": "RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
 	],

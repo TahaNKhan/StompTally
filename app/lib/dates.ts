@@ -7,12 +7,14 @@ export function localParts(now: Date, timeZone: string) {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
+    minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(now);
   const get = (t: string) => parts.find((p) => p.type === t)!.value;
   return {
     date: `${get("year")}-${get("month")}-${get("day")}`,
     hour: Number(get("hour")),
+    minute: Number(get("minute")),
   };
 }
 
@@ -47,13 +49,13 @@ export function isDate(s: unknown): s is string {
 }
 
 /**
- * Day D is finalized at FINALIZE_HOUR local time on D+1 (gives late Health syncs time to land).
- * Returns the latest date that is allowed to be finalized right now.
+ * Day D is finalized FINALIZE_MINUTE_OF_DAY minutes after local midnight on D+1, just after the
+ * Stompers game for D ends. Returns the latest date that is allowed to be finalized right now.
  */
-export const FINALIZE_HOUR = 12;
+export const FINALIZE_MINUTE_OF_DAY = 5;
 export function lastFinalizableDate(now: Date, timeZone: string): string {
-  const { date, hour } = localParts(now, timeZone);
-  return addDays(date, hour >= FINALIZE_HOUR ? -1 : -2);
+  const { date, hour, minute } = localParts(now, timeZone);
+  return addDays(date, hour * 60 + minute >= FINALIZE_MINUTE_OF_DAY ? -1 : -2);
 }
 
 export function formatDay(date: string): string {

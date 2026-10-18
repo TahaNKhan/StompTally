@@ -29,7 +29,7 @@ All data below is invented. Regenerate with `node scripts/screenshots.mjs`.
 - Linked accounts keep their last successful counts when the API fails. Missing or stale API data delays locking instead of generating a zero-step penalty. An explicit manual fallback or admin correction can still lock.
 - Both imported counts appear on Today and Month. An admin correction overrides the imported score; later pulls still refresh the two API counts.
 - Manual step entry lives on Me. Each save creates a separate immutable manual entry and an audit event with the previous score and API snapshot. The manual score overrides that day's tally while scheduled pulls continue updating both API counts. Members see their own change history on Me; admins see their group's history on Group.
-- Each person logs their own steps for today, or yesterday until it locks. Days lock at **12:00 noon the next day** (group timezone), then only an admin can correct them.
+- Each person logs their own steps for today, or yesterday until it locks. Days lock at **12:05 AM the next day** (group timezone), right after the Stompers game ends, then only an admin can correct them.
 - **Skips:** 3 per person per calendar month, claimed manually before the day locks. A skip is only used up if it actually saves you from paying. Otherwise it's released. A used skip never moves the penalty to someone else.
 - An admin can correct any past day. Correcting a locked day recomputes it.
 
@@ -136,10 +136,10 @@ Run after `scripts/smoke.sh` against its local fixture. Uses Chromium at `/usr/b
 
 ## Stompers reads
 
-Cron runs at minute 5 of every even UTC hour (`5 */2 * * *`). It resolves
+Cron runs at minute 5 of every even UTC hour (`5 */2 * * *`) plus 07:05 UTC (`5 7 * * *`), which is 00:05 PDT. 00:05 PST is 08:05 UTC, already an even hour. A group in another time zone locks at its first run after its own 00:05. It resolves
 `USER_UID_friends`, reads `current_game_uid`, and fetches the current game.
 It also reads recent games and caches known game IDs so yesterday can be
-refreshed before the noon lock, even when the history list omits it.
+refreshed before the 12:05 AM lock, even when the history list omits it.
 Only today/yesterday, after joining the group, are imported. Finalized days
 remain unchanged. API games must span one full local day in the group timezone;
 both counts must be valid numbers. A linked API entry must have a successful

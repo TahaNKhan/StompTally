@@ -67,7 +67,7 @@ export default function Invite() {
       <ul className="mb-5 space-y-2 text-sm text-zinc-300">
         <li>👟 Lowest steps under 10k each day owes <b className="text-lime">$5</b></li>
         <li>🤝 Ties: everyone tied pays</li>
-        <li>🛡️ 3 skip days a month, claimed before noon the next day</li>
+        <li>🛡️ 3 skip days a month, claimed before the day locks at 12:05 AM</li>
       </ul>
       {signedInAs && signedInAs !== invite.email && (
         <p className="mb-4 rounded-xl border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-amber">

@@ -129,7 +129,7 @@ describe("steps + finalize", () => {
     // Oct 2: ali + omar tie at 5000
     for (const [u, s] of [[taha, 12000], [ali, 5000], [omar, 5000], [zaid, 11000], [sam, 20000]] as const) await set(db, u, "2026-10-02", s, T0 + D);
 
-    // Oct 3 12:00 PDT: both days finalizable
+    // Oct 3 12:00 PDT: both days are well past their locks
     const done = await svc.finalizeDue(db, Date.parse("2026-10-03T19:00:00Z"));
     expect(done.map((d) => d.date)).toEqual(["2026-10-01", "2026-10-02"]);
     const mv = await svc.monthView(db, group, "2026-10");
@@ -138,26 +138,26 @@ describe("steps + finalize", () => {
     expect(mv.potCents).toBe(1500);
   });
 
-  it("doesn't finalize before noon next day, and is idempotent", async () => {
+  it("doesn't finalize before 00:05 next day, and is idempotent", async () => {
     const { db } = await setup();
-    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T18:59:00Z"))).toEqual([]);
-    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T19:00:00Z"))).toHaveLength(1);
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T07:04:00Z"))).toEqual([]);
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T07:05:00Z"))).toHaveLength(1);
     expect(await svc.finalizeDue(db, Date.parse("2026-10-02T20:00:00Z"))).toEqual([]);
   });
 
-  it("self-report window: today or yesterday until noon, never future", async () => {
+  it("self-report window: today or yesterday until 00:05, never future", async () => {
     const { db, taha } = await setup();
-    // Oct 10, 09:00 PDT
-    const morning = Date.parse("2026-10-10T16:00:00Z");
+    // Oct 10, 00:01 PDT
+    const morning = Date.parse("2026-10-10T07:01:00Z");
     await expect(set(db, taha, "2026-10-11", 1, morning)).rejects.toThrow(/future/);
     await expect(set(db, taha, "2026-10-08", 1, morning)).rejects.toThrow(/today or yesterday/);
     await set(db, taha, "2026-10-10", 12000, morning);
-    await set(db, taha, "2026-10-09", 9000, morning); // yesterday, before noon: allowed
+    await set(db, taha, "2026-10-09", 9000, morning); // yesterday, before 00:05: allowed
     await set(db, taha, "2026-10-09", 11000, morning); // overwrite allowed
-    // Oct 10, 12:05 PDT: yesterday is final now
-    const noon = Date.parse("2026-10-10T19:05:00Z");
-    await svc.finalizeDue(db, noon);
-    await expect(set(db, taha, "2026-10-09", 20000, noon)).rejects.toThrow(/final/);
+    // Oct 10, 00:05 PDT: yesterday is final now
+    const locked = Date.parse("2026-10-10T07:05:00Z");
+    await svc.finalizeDue(db, locked);
+    await expect(set(db, taha, "2026-10-09", 20000, locked)).rejects.toThrow(/final/);
     const row = await db.first<{ steps: number }>("SELECT steps FROM step_entries WHERE user_id = ? AND date = '2026-10-09'", taha.id);
     expect(row?.steps).toBe(11000);
   });

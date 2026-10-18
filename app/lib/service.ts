@@ -273,7 +273,7 @@ async function isFinalized(db: Db, groupId: string, date: string) {
 
 /**
  * Record steps for a day (the Stompers number, after power-ups).
- * Self-reports: today, or yesterday until it finalizes at noon. Never a finalized day.
+ * Self-reports: today, or yesterday until it finalizes at 12:05 AM. Never a finalized day.
  * Admin edits can touch any past day; editing a finalized day re-finalizes it.
  */
 export async function recordSteps(

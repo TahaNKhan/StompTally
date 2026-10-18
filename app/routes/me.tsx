@@ -98,8 +98,8 @@ export default function Me() {
           <li>👟 Link <b>Stompers</b> to pull both counts every two hours. The higher count wins. Log manual changes here; each save is kept in the change log.</li>
           <li>👟 Lowest under {rules.threshold.toLocaleString("en-US")} each day owes <b className="text-lime">${rules.penalty / 100}</b>. Ties: everyone tied pays.</li>
           <li>🫥 Didn't log? That counts as 0.</li>
-          <li>🛡️ {rules.skips} skips a month. Claim one before noon the next day. It's only used up if it saves you.</li>
-          <li>🔒 Each day locks at noon the next day. After that only the admin can fix it.</li>
+          <li>🛡️ {rules.skips} skips a month. Claim one before the day locks. It's only used up if it saves you.</li>
+          <li>🔒 Each day locks at 12:05 AM the next day. After that only the admin can fix it.</li>
         </ul>
       </section>
 

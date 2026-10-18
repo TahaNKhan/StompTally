@@ -61,7 +61,7 @@ export function LogSteps({ today, yesterday, myToday, myYesterday }: { today: st
       </f.Form>
       {saved && <p className="mt-2 text-xs text-lime">✓ Saved</p>}
       <ErrorNote error={f.data && "error" in f.data ? f.data.error : null} />
-      {yesterday && <p className="mt-2 text-xs text-muted">Yesterday locks at noon. Update anytime before then.</p>}
+      {yesterday && <p className="mt-2 text-xs text-muted">Days lock at 12:05 AM. Update anytime before then.</p>}
     </section>
   );
 }
