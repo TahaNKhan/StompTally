@@ -47,6 +47,7 @@ app/lib/pages.ts        one SQL statement per page, including session and group 
 app/lib/views.ts        pure view builders, no database calls
 app/lib/db.ts           Db interface + D1 adapter with request-scoped timing
 app/lib/dates.ts        timezone / lock-time helpers
+app/lib/avatars.ts      one photo per person in D1 (user_id is the primary key); app/routes/avatar.tsx serves it to the group
 app/lib/mail.server.ts  Resend sender (logs to console when no API key)
 app/routes/             pages: today, month, history (ledger), me, group (admin), login, invite, setup
 workers/app.ts          Worker entry: security headers + two-hour sync before finalize

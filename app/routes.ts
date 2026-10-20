@@ -7,6 +7,7 @@ export default [
   route("setup", "routes/setup.tsx"),
   route("invite/:token", "routes/invite.tsx"),
   route("no-group", "routes/no-group.tsx"),
+  route("avatar/:userId", "routes/avatar.tsx"),
   layout("routes/_app.tsx", [
     index("routes/today.tsx"),
     route("month/:ym?", "routes/month.tsx"),

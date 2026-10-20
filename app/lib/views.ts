@@ -3,7 +3,7 @@ import { computeDay } from "./rules";
 import { daysInMonth } from "./dates";
 import type { Group } from "./service";
 
-export type MemberRow = { id: string; name: string; email: string; role: string; joined_date: string; left_date: string | null };
+export type MemberRow = { id: string; name: string; email: string; role: string; joined_date: string; left_date: string | null; avatar_v?: number | null };
 export type EntryRow = { user_id: string; date: string; steps: number; updated_at: number; raw_steps?: number | null; game_steps?: number | null; source?: string };
 export type ClaimRow = { user_id: string; date: string; status: string };
 export type ResultRow = { date: string; min_steps: number | null; loser_ids: string; outcome: string };

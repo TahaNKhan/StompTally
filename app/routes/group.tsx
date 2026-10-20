@@ -60,7 +60,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function GroupPage() {
-  const { group, members, invites, today, manualHistory } = useLoaderData<typeof loader>();
+  const { group, members, invites, today, manualHistory, avatars } = useLoaderData<typeof loader>();
   const inv = useFetcher<typeof action>();
   const settings = useFetcher<typeof action>();
   const correct = useFetcher<typeof action>();
@@ -104,7 +104,7 @@ export default function GroupPage() {
         <h2 className="font-display text-lg font-bold">Members · {members.length}</h2>
         <ul className="mt-3 divide-y divide-line/60">
           {members.map((m) => (
-            <MemberRow key={m.id} m={m} />
+            <MemberRow key={m.id} m={m} avatar={avatars[m.id]} />
           ))}
         </ul>
       </section>
@@ -199,11 +199,11 @@ function InviteRow({ i, timezone }: { i: { id: string; email: string; expires_at
   );
 }
 
-function MemberRow({ m }: { m: { id: string; name: string; email: string; role: string } }) {
+function MemberRow({ m, avatar }: { m: { id: string; name: string; email: string; role: string }; avatar?: number }) {
   const f = useFetcher<typeof action>();
   return (
     <li className="flex items-center gap-3 py-3">
-      <Avatar id={m.id} name={m.name} size={34} />
+      <Avatar id={m.id} name={m.name} size={34} version={avatar} />
       <div className="min-w-0 flex-1">
         <div className="font-medium">
           {m.name} {m.role === "admin" && <span className="ml-1 rounded bg-lime/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-lime">admin</span>}

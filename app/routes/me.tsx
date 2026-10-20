@@ -7,6 +7,8 @@ import { AppError, recordSteps, renameSelf } from "../lib/service";
 import { LogSteps } from "../components/manual-steps";
 import { ManualHistory } from "../components/manual-history";
 import { ThemeSwitch } from "../components/theme-switch";
+import { AvatarUpload } from "../components/avatar-upload";
+import { deleteAvatar, saveAvatar } from "../lib/avatars";
 import { loadMe } from "../lib/pages";
 import { linkStompers, unlinkStompers, syncStompers } from "../lib/stompers.server";
 import { rateLimit } from "../lib/http.server";
@@ -26,6 +28,17 @@ export async function action({ request }: Route.ActionArgs) {
       await recordSteps(db(), { actor: user, userId: user.id, date: String(f.get("date") ?? ""), steps: value ? Number(value) : NaN, source: "manual" });
       return { ok: true };
     }
+    if (f.get("intent") === "avatar-upload") {
+      await rateLimit(request, "avatar.upload");
+      const photo = f.get("photo");
+      if (!(photo instanceof File)) throw new AppError(400, "Choose a photo first.");
+      await saveAvatar(db(), user.id, new Uint8Array(await photo.arrayBuffer()));
+      return { avatar: "saved" as const };
+    }
+    if (f.get("intent") === "avatar-delete") {
+      await deleteAvatar(db(), user.id);
+      return { avatar: "removed" as const };
+    }
     if (f.get("intent") === "stompers") {
       await rateLimit(request, "stompers.link");
       await linkStompers(db(), user, String(f.get("identity") ?? ""), String(f.get("kind") ?? "username"));
@@ -43,7 +56,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Me() {
-  const { user, rules, stompers, timezone, today, yesterday, manualHistory } = useLoaderData<typeof loader>();
+  const { user, rules, stompers, timezone, today, yesterday, manualHistory, avatars } = useLoaderData<typeof loader>();
   const rename = useFetcher<typeof action>();
   const link = useFetcher<typeof action>();
 
@@ -51,7 +64,7 @@ export default function Me() {
     <div className="space-y-4">
       <section className="card p-5 rise">
         <div className="flex items-center gap-4">
-          <Avatar id={user.id} name={user.name} size={52} />
+          <Avatar id={user.id} name={user.name} size={52} version={avatars[user.id]} />
           <div className="min-w-0">
             <div className="font-display text-lg font-bold">{user.name}</div>
             <div className="truncate text-xs text-muted">{user.email}</div>
@@ -103,6 +116,8 @@ export default function Me() {
           <li>🔒 Each day locks at 12:05 AM the next day. After that only the admin can fix it.</li>
         </ul>
       </section>
+
+      <AvatarUpload userId={user.id} name={user.name} version={avatars[user.id] ?? null} />
 
       <ThemeSwitch />
 

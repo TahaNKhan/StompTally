@@ -43,7 +43,7 @@ export default function Month() {
             const pct = d.potCents ? (t.cents / d.potCents) * 100 : 0;
             return (
               <li key={t.userId} className="flex items-center gap-3">
-                <Avatar id={t.userId} name={t.name} size={30} />
+                <Avatar id={t.userId} name={t.name} size={30} version={d.avatars[t.userId]} />
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">{t.name}</span>
@@ -87,7 +87,7 @@ export default function Month() {
                 <span className="self-start pl-0.5 text-muted">{n}</span>
                 {day.outcome === "penalty" && who && (
                   <span className="flex -space-x-2">
-                    {day.payers.slice(0, 2).map((u) => <Avatar key={u} id={u} name={d.names[u] ?? "?"} size={20} />)}
+                    {day.payers.slice(0, 2).map((u) => <Avatar key={u} id={u} name={d.names[u] ?? "?"} size={20} version={d.avatars[u]} />)}
                   </span>
                 )}
                 {day.outcome === "skipped" && <span className="text-base leading-none">🛡️</span>}

@@ -3,7 +3,7 @@
 //   node scripts/screenshots.mjs        (needs Chromium; set CHROMIUM to override /usr/bin/chromium)
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -53,6 +53,14 @@ function buildSeed(now) {
     insert("users", [p.id, p.email, p.name, now]);
     insert("memberships", [GROUP, p.id, p === me ? "admin" : "member", monthStart, null]);
     insert("stompers_accounts", [p.id, `fake-uid-${p.stompers}`, p.stompers, now, now - 20 * 60_000, now - 20 * 60_000, null, 0, null]);
+  }
+  // Optional invented faces (SHOTS_FACES=dir with alex.jpg, jordan.jpg, riley.jpg) so the README can show photos.
+  if (process.env.SHOTS_FACES) {
+    const faces = { alex: people[0], jordan: people[1], riley: people[3] };
+    for (const [file, person] of Object.entries(faces)) {
+      const hex = readFileSync(join(process.env.SHOTS_FACES, `${file}.jpg`)).toString("hex");
+      rows.push(`INSERT INTO user_avatars VALUES ('${person.id}', X'${hex}', 'image/jpeg', ${hex.length / 2}, ${now});`);
+    }
   }
   const sessionHash = createHash("sha256").update(SESSION_ID).digest("hex");
   insert("sessions", [sessionHash, me.id, now + 30 * 864e5]);

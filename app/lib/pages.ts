@@ -13,7 +13,7 @@ import { AppError, type Group, type User } from "./service";
 import { addDays, addMonths, isDate, localDate, monthOf } from "./dates";
 import { buildDay, buildMonth, inMonth, type ClaimRow, type EntryRow, type MemberRow, type PenaltyRow, type ResultRow, type SettlementRow } from "./views";
 
-export type Ctx = { user: User; group: Group; role: "admin" | "member"; joinedDate: string };
+export type Ctx = { user: User; group: Group; role: "admin" | "member"; joinedDate: string; avatarVersion: number | null };
 type PageStmt = Stmt & { columns: string[] };
 type Q = (sql: string, columns: string[], ...extra: unknown[]) => PageStmt;
 
@@ -22,8 +22,8 @@ function jsonRows(sql: string, columns: string[]) {
   const fields = columns.flatMap((c) => [`'${c}'`, `r.${c}`]).join(", ");
   return `(SELECT json_group_array(json_object(${fields})) FROM (${sql}) r)`;
 }
-const CTX_COLUMNS = ["id", "email", "name", "role", "joined_date", "g_id", "g_name", "g_timezone", "g_threshold", "g_penalty", "g_skips", "g_start"];
-const MEMBER_COLUMNS = ["id", "name", "email", "role", "joined_date", "left_date"];
+const CTX_COLUMNS = ["id", "email", "name", "role", "joined_date", "g_id", "g_name", "g_timezone", "g_threshold", "g_penalty", "g_skips", "g_start", "avatar_v"];
+const MEMBER_COLUMNS = ["id", "name", "email", "role", "joined_date", "left_date", "avatar_v"];
 const ENTRY_COLUMNS = ["user_id", "date", "steps", "updated_at", "raw_steps", "game_steps", "source"];
 const CLAIM_COLUMNS = ["user_id", "date", "status"];
 const RESULT_COLUMNS = ["date", "min_steps", "loser_ids", "outcome"];
@@ -49,10 +49,13 @@ const GID = "(SELECT gid FROM ctx)";
 
 const CTX_SELECT = `SELECT me.id, me.email, me.name, ctx.role, ctx.joined_date,
   g.id AS g_id, g.name AS g_name, g.timezone AS g_timezone, g.threshold_steps AS g_threshold,
-  g.penalty_cents AS g_penalty, g.skips_per_month AS g_skips, g.start_date AS g_start
+  g.penalty_cents AS g_penalty, g.skips_per_month AS g_skips, g.start_date AS g_start,
+  (SELECT a.updated_at FROM user_avatars a WHERE a.user_id = me.id) AS avatar_v
   FROM me LEFT JOIN ctx ON 1 LEFT JOIN groups g ON g.id = ctx.gid`;
 
-const MEMBERS = `SELECT u.id, u.name, u.email, m.role, m.joined_date, m.left_date
+// avatar_v is the photo's updated_at (null = no photo). It versions the image URL for caching; bytes are never read here.
+const MEMBERS = `SELECT u.id, u.name, u.email, m.role, m.joined_date, m.left_date,
+  (SELECT a.updated_at FROM user_avatars a WHERE a.user_id = u.id) AS avatar_v
   FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.group_id = ${GID} ORDER BY m.joined_date, u.name`;
 // ?3 = from date (inclusive), ?4 = to date (exclusive)
 const ENTRIES = `SELECT e.user_id, e.date, e.steps, e.updated_at, e.raw_steps, e.game_steps, e.source FROM step_entries e
@@ -94,6 +97,7 @@ export async function runAuthed(db: Db, sid: string | null | undefined, now: num
         user,
         role: r.role,
         joinedDate: r.joined_date,
+        avatarVersion: r.avatar_v ?? null,
         group: {
           id: r.g_id,
           name: r.g_name,
@@ -108,7 +112,11 @@ export async function runAuthed(db: Db, sid: string | null | undefined, now: num
   return { user, ctx, rows: res.slice(1) };
 }
 
-export const shellOf = (ctx: Ctx) => ({ user: ctx.user, groupName: ctx.group.name, isAdmin: ctx.role === "admin" });
+export const shellOf = (ctx: Ctx) => ({ user: ctx.user, groupName: ctx.group.name, isAdmin: ctx.role === "admin", myAvatar: ctx.avatarVersion });
+
+/** user id -> photo version, for members that have one. */
+export const avatarVersions = (members: { id: string; avatar_v?: number | null }[]) =>
+  Object.fromEntries(members.filter((m) => m.avatar_v != null).map((m) => [m.id, m.avatar_v as number]));
 
 const utcDate = (now: number) => new Date(now).toISOString().slice(0, 10);
 
@@ -145,6 +153,7 @@ export async function loadToday(db: Db, sid: string | null | undefined, now = Da
       totals: mv.totals,
       pot: mv.potCents,
       sync: Object.fromEntries(syncRows.map((r) => [r.user_id, { syncedAt: r.last_synced_at, failures: r.consecutive_failures }])),
+      avatars: avatarVersions(members),
       now,
     },
   };
@@ -173,7 +182,7 @@ export async function loadMonth(db: Db, sid: string | null | undefined, ym: stri
   const month = explicit ?? monthOf(today);
   const s = settlements.find((x) => x.month === month);
   const mv = buildMonth(month, members, results, penalties, claims, entries, s ? { note: s.note, settled_at: s.settled_at } : null);
-  return { auth: a, page: { shell: shellOf(a.ctx), ...mv, today, current: monthOf(today), startMonth: monthOf(group.start_date) } };
+  return { auth: a, page: { shell: shellOf(a.ctx), ...mv, avatars: avatarVersions(members), today, current: monthOf(today), startMonth: monthOf(group.start_date) } };
 }
 
 export async function loadHistory(db: Db, sid: string | null | undefined, now = Date.now()) {
@@ -199,6 +208,7 @@ export async function loadMe(db: Db, sid: string | null | undefined, now = Date.
     ["user_id", "date", "steps", "updated_at"], lo, hi),
     q(RESULTS, RESULT_COLUMNS, lo, hi),
     q(`${MANUAL_LOG} WHERE e.user_id=(SELECT id FROM me) AND e.group_id=${GID} ORDER BY e.created_at DESC,e.id DESC LIMIT 20`, MANUAL_COLUMNS),
+    q("SELECT updated_at FROM user_avatars WHERE user_id=(SELECT id FROM me)", ["updated_at"]),
   ]);
   if (!a.ctx) return { auth: a, page: null };
   const g = a.ctx.group;
@@ -210,6 +220,7 @@ export async function loadMe(db: Db, sid: string | null | undefined, now = Date.
     page: { shell: shellOf(a.ctx), user: a.ctx.user, timezone: g.timezone,
       stompers: (a.rows[0][0] ?? null) as { stompers_uid: string; username: string | null; last_attempt_at: number | null; last_synced_at: number | null; last_error: string | null } | null,
       today: manualDay(today), yesterday: manualDay(yesterday), manualHistory: a.rows[3] as ManualStepLog[],
+      avatars: avatarVersions([{ id: a.ctx.user.id, avatar_v: (a.rows[4][0] as { updated_at: number } | undefined)?.updated_at ?? null }]),
       rules: { threshold: g.threshold_steps, penalty: g.penalty_cents, skips: g.skips_per_month } },
   };
 }
@@ -232,6 +243,7 @@ export async function loadGroupAdmin(db: Db, sid: string | null | undefined, now
       isAdmin: a.ctx.role === "admin",
       group: a.ctx.group,
       members: members.filter((m) => m.left_date === null),
+      avatars: avatarVersions(members),
       invites,
       manualHistory,
       today: localDate(new Date(now), a.ctx.group.timezone),

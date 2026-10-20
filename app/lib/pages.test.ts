@@ -32,6 +32,7 @@ function fixture(timezone = "America/Los_Angeles") {
   sql.exec(readFileSync(new URL("../../migrations/0003_stompers.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0004_manual_step_entries.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0005_stompers_sync_health.sql", import.meta.url), "utf8"));
+  sql.exec(readFileSync(new URL("../../migrations/0006_user_avatars.sql", import.meta.url), "utf8"));
   return { db, sql, hops: () => hops, reset: () => { hops = 0; } };
 }
 async function ready(timezone?: string) {

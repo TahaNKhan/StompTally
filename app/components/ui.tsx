@@ -11,7 +11,8 @@ export function colorFor(id: string) {
   return PALETTE[h % PALETTE.length];
 }
 
-export function Avatar({ id, name, size = 36, ring }: { id: string; name: string; size?: number; ring?: string }) {
+/** `version` is the photo's updated_at. Omit it (or pass null) to show initials. */
+export function Avatar({ id, name, size = 36, ring, version }: { id: string; name: string; size?: number; ring?: string; version?: number | null }) {
   const initials = name
     .split(/\s+/)
     .map((p) => p[0])
@@ -20,11 +21,21 @@ export function Avatar({ id, name, size = 36, ring }: { id: string; name: string
     .toUpperCase();
   return (
     <span
-      className="inline-grid shrink-0 place-items-center rounded-full font-display font-bold text-[#09090c]"
+      className="relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full font-display font-bold text-[#09090c]"
       style={{ width: size, height: size, background: colorFor(id), fontSize: size * 0.38, boxShadow: ring ? `0 0 0 2px var(--color-ink), 0 0 0 4px ${ring}` : undefined }}
       title={name}
     >
       {initials}
+      {version != null && (
+        <img
+          src={`/avatar/${encodeURIComponent(id)}?v=${version}`}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={(event) => { event.currentTarget.style.display = "none"; }}
+        />
+      )}
     </span>
   );
 }
@@ -41,7 +52,7 @@ export function timeAgo(ts: number | null, now = Date.now()) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export function Shell({ children, user, groupName, isAdmin }: { children: React.ReactNode; user: { id: string; name: string }; groupName: string; isAdmin: boolean }) {
+export function Shell({ children, user, groupName, isAdmin, myAvatar }: { children: React.ReactNode; user: { id: string; name: string }; groupName: string; isAdmin: boolean; myAvatar?: number | null }) {
   const tabs = [
     { to: "/", label: "Today", icon: "🔥", end: true },
     { to: "/month", label: "Month", icon: "📅" },
@@ -65,7 +76,7 @@ export function Shell({ children, user, groupName, isAdmin }: { children: React.
             </NavLink>
           )}
           <Link to="/me">
-            <Avatar id={user.id} name={user.name} size={36} />
+            <Avatar id={user.id} name={user.name} size={36} version={myAvatar} />
           </Link>
         </div>
       </header>

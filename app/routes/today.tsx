@@ -30,8 +30,9 @@ export async function action({ request }: Route.ActionArgs) {
 
 type Day = Awaited<ReturnType<typeof loader>>["today"];
 type Sync = Awaited<ReturnType<typeof loader>>["sync"];
+type Avatars = Awaited<ReturnType<typeof loader>>["avatars"];
 
-function Board({ day, sync, me, threshold, penalty, skips, skipsUsed, now, label, live }: { day: Day; sync: Sync; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean }) {
+function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, now, label, live }: { day: Day; sync: Sync; avatars: Avatars; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean }) {
   const fetcher = useFetcher<typeof action>();
   const max = Math.max(threshold * 1.5, ...day.rows.map((r) => r.steps ?? 0));
   const losers = new Set(day.preview.loserIds);
@@ -68,7 +69,7 @@ function Board({ day, sync, me, threshold, penalty, skips, skipsUsed, now, label
             <li key={r.userId} className="relative px-5 py-3.5">
               <div className="flex items-center gap-3">
                 <span className="w-4 text-center font-display text-sm text-muted">{i + 1}</span>
-                <Avatar id={r.userId} name={r.name} size={34} ring={danger ? "var(--color-coral)" : undefined} />
+                <Avatar id={r.userId} name={r.name} size={34} ring={danger ? "var(--color-coral)" : undefined} version={avatars[r.userId]} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-semibold">{r.name}{r.userId === me && <span className="text-muted"> (you)</span>}</span>
@@ -165,9 +166,9 @@ export default function Today() {
       </div>
 
       {!d.yesterday.finalized && d.yesterday.rows.length > 0 && (
-        <Board day={d.yesterday} sync={d.sync} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedYesterday} now={d.now} label="Yesterday" live={false} />
+        <Board day={d.yesterday} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedYesterday} now={d.now} label="Yesterday" live={false} />
       )}
-      <Board day={d.today} sync={d.sync} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live />
+      <Board day={d.today} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live />
     </div>
   );
 }
