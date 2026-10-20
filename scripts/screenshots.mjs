@@ -4,15 +4,22 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
 
-const PORT = 5199;
+// A free port per run, so a server left over from an earlier run can never answer for this one.
+const PORT = await new Promise((resolve, reject) => {
+  const probe = createServer();
+  probe.once("error", reject);
+  probe.listen(0, "127.0.0.1", () => { const { port } = probe.address(); probe.close(() => resolve(port)); });
+});
 const BASE = `http://localhost:${PORT}`;
 const TZ = "America/Los_Angeles";
 const SESSION_ID = "screenshot-session";
-const OUT = new URL("../screenshots/", import.meta.url).pathname;
+const OUT = process.env.SHOTS_OUT || new URL("../screenshots/", import.meta.url).pathname;
+const SCHEME = process.env.SHOTS_SCHEME === "light" ? "light" : "dark";
 
 const people = [
   { id: "00000000-0000-4000-8000-000000000001", name: "Alex Rivera", email: "alex@example.com", stompers: "alexwalks", base: 13200 },
@@ -89,7 +96,7 @@ try {
   writeFileSync(join(work, "seed.sql"), seed.sql);
   run(["d1", "execute", "stomp-tally", "--local", "--persist-to", persist, "--file", join(work, "seed.sql")]);
 
-  server = spawn("npx", ["vite", "dev", "--port", String(PORT), "--strictPort"], { env: { ...process.env, STOMP_PERSIST: persist, SETUP_KEY: "unused", APP_URL: BASE }, stdio: "pipe" });
+  server = spawn("npx", ["vite", "dev", "--port", String(PORT), "--strictPort"], { env: { ...process.env, STOMP_PERSIST: persist, SETUP_KEY: "unused", APP_URL: BASE }, stdio: "pipe", detached: true });
   const serverLog = [];
   for (const stream of [server.stdout, server.stderr]) stream.on("data", (chunk) => serverLog.push(String(chunk)));
   await waitForServer(BASE, server);
@@ -97,19 +104,28 @@ try {
   mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || "/usr/bin/chromium" });
   try {
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: "reduce", timezoneId: TZ, locale: "en-US" });
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: "reduce", colorScheme: SCHEME, timezoneId: TZ, locale: "en-US" });
     await context.addCookies([{ name: "st_session", value: SESSION_ID, url: BASE }]);
     const page = await context.newPage();
     // Phone-sized frames keep the fixed bottom nav at the bottom, as on a real device.
     const pages = [["today", "/", 1180], ["month", "/month", 1000], ["ledger", "/history", 844], ["me", "/me", 1100], ["group", "/group", 1100]];
-    for (const [name, path, height] of pages) {
+    const only = process.env.SHOTS_ONLY?.split(",");
+    for (const [name, path, height] of pages.filter(([name]) => !only || only.includes(name))) {
       await page.setViewportSize({ width: 390, height });
+      if (process.env.SHOTS_DEBUG) {
+        page.on("console", (m) => ["error", "warning"].includes(m.type()) && console.log(`  [console.${m.type()}] ${m.text().slice(0, 260)}`));
+        page.on("pageerror", (e) => console.log(`  [pageerror] ${String(e.message).slice(0, 260)}`));
+      }
       const response = await page.goto(`${BASE}${path}`, { waitUntil: "load" });
       if (!response?.ok()) {
+        await page.waitForTimeout(1500); // the dev server logs after it responds
+        console.error((await response?.text())?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 1200));
         console.error(serverLog.join("").slice(-3000));
         throw new Error(`${path} returned HTTP ${response?.status()}; refusing to save an error page`);
       }
       await page.waitForTimeout(400);
+      const probe = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, body: getComputedStyle(document.body).backgroundColor, at: location.pathname }));
+      console.log(`  ${name}: ${response.status()} ${JSON.stringify({ ...probe, title: await page.title(), h1: (await page.locator('h1,h2').first().innerText().catch(() => '')).slice(0, 60) })}`);
       await page.screenshot({ path: join(OUT, `${name}.png`) });
       console.log(`✓ screenshots/${name}.png`);
     }
@@ -117,6 +133,14 @@ try {
     await browser.close();
   }
 } finally {
-  server?.kill("SIGTERM");
+  if (server?.pid) {
+    // npx starts Vite as a child; signal the whole group and wait, or it outlives this script.
+    const exited = new Promise((resolve) => server.once("exit", resolve));
+    try { process.kill(-server.pid, "SIGTERM"); } catch { /* already gone */ }
+    await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 5000))]);
+    try { process.kill(-server.pid, "SIGKILL"); } catch { /* exited cleanly */ }
+    server.stdout.destroy();
+    server.stderr.destroy();
+  }
   rmSync(work, { recursive: true, force: true });
 }

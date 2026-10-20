@@ -1,6 +1,7 @@
 @import "tailwindcss" source(".");
 
-@theme {
+/* static: every token is always emitted, so inline styles can use var(--color-*) in both themes. */
+@theme static {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
   --color-ink: #09090c;
@@ -11,20 +12,54 @@
   --color-coral: #ff6b6b;
   --color-amber: #ffc857;
   --color-sky: #7cc4ff;
+  --color-body: #ececf1;
+  --color-strong: #f4f4f8;
+  --color-soft: #d4d4d8;
+  --color-fg: #ffffff;
+  --color-field: rgb(0 0 0 / 0.3);
+  --color-sunken: rgb(0 0 0 / 0.2);
+  --color-on-accent: #09090c;
+  --color-glow-a: rgb(182 243 92 / 0.08);
+  --color-glow-b: rgb(124 196 255 / 0.05);
+}
+
+/* Dark is the default above. app/lib/theme.ts sets data-theme from the saved choice or the system. */
+:root[data-theme="light"] {
+  --color-ink: #f6f6f1;
+  --color-panel: #ffffff;
+  --color-line: #dedfd4;
+  --color-muted: #6b6b78;
+  --color-lime: #4d7c0f;
+  --color-coral: #d23a3a;
+  --color-amber: #9a5b06;
+  --color-sky: #1769aa;
+  --color-body: #1a1a20;
+  --color-strong: #0b0b0f;
+  --color-soft: #3f3f46;
+  --color-fg: #000000;
+  --color-field: #ffffff;
+  --color-sunken: rgb(0 0 0 / 0.035);
+  --color-on-accent: #ffffff;
+  --color-glow-a: rgb(77 124 15 / 0.07);
+  --color-glow-b: rgb(23 105 170 / 0.05);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 html,
 body {
   background: var(--color-ink);
-  color: #ececf1;
-  color-scheme: dark;
+  color: var(--color-body);
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background-image:
-    radial-gradient(60rem 30rem at 50% -10rem, rgb(182 243 92 / 0.08), transparent 70%),
-    radial-gradient(40rem 20rem at 100% 0, rgb(124 196 255 / 0.05), transparent 70%);
+    radial-gradient(60rem 30rem at 50% -10rem, var(--color-glow-a), transparent 70%),
+    radial-gradient(40rem 20rem at 100% 0, var(--color-glow-b), transparent 70%);
   background-attachment: fixed;
   min-height: 100dvh;
 }
@@ -37,16 +72,16 @@ body {
   @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50;
 }
 @utility btn-primary {
-  @apply btn bg-lime text-ink hover:brightness-110;
+  @apply btn bg-lime text-on-accent hover:brightness-110;
 }
 @utility btn-ghost {
-  @apply btn border border-line bg-white/[0.03] text-zinc-200 hover:bg-white/[0.07];
+  @apply btn border border-line bg-fg/[0.03] text-strong hover:bg-fg/[0.07];
 }
 @utility btn-danger {
   @apply btn border border-coral/30 bg-coral/10 text-coral hover:bg-coral/20;
 }
 @utility input {
-  @apply w-full rounded-xl border border-line bg-black/30 px-3.5 py-2.5 text-[15px] text-white outline-none placeholder:text-zinc-600 focus:border-lime/60 focus:ring-2 focus:ring-lime/20;
+  @apply w-full rounded-xl border border-line bg-field px-3.5 py-2.5 text-[15px] text-strong outline-none placeholder:text-muted/70 focus:border-lime/60 focus:ring-2 focus:ring-lime/20;
 }
 @utility label {
   @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted;

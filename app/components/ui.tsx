@@ -20,8 +20,8 @@ export function Avatar({ id, name, size = 36, ring }: { id: string; name: string
     .toUpperCase();
   return (
     <span
-      className="inline-grid shrink-0 place-items-center rounded-full font-display font-bold text-ink"
-      style={{ width: size, height: size, background: colorFor(id), fontSize: size * 0.38, boxShadow: ring ? `0 0 0 2px #09090c, 0 0 0 4px ${ring}` : undefined }}
+      className="inline-grid shrink-0 place-items-center rounded-full font-display font-bold text-[#09090c]"
+      style={{ width: size, height: size, background: colorFor(id), fontSize: size * 0.38, boxShadow: ring ? `0 0 0 2px var(--color-ink), 0 0 0 4px ${ring}` : undefined }}
       title={name}
     >
       {initials}
@@ -78,7 +78,7 @@ export function Shell({ children, user, groupName, isAdmin }: { children: React.
               key={t.to}
               to={t.to}
               end={t.end}
-              className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition ${isActive ? "text-lime" : "text-muted hover:text-zinc-300"}`}
+              className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition ${isActive ? "text-lime" : "text-muted hover:text-soft"}`}
             >
               <span className="text-xl leading-none">{t.icon}</span>
               {t.label}

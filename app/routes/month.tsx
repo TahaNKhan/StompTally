@@ -49,7 +49,7 @@ export default function Month() {
                     <span className="font-medium">{t.name}</span>
                     <span className={`font-display font-bold tabular-nums ${t.cents ? "text-coral" : "text-muted"}`}>{money(t.cents)}</span>
                   </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-fg/[0.06]">
                     <div className="bar-grow h-full rounded-full bg-coral" style={{ width: `${pct}%` }} />
                   </div>
                   <div className="mt-1 text-[11px] text-muted">{t.losses} loss{t.losses === 1 ? "" : "es"} · {t.skipsUsed} skip{t.skipsUsed === 1 ? "" : "s"} used</div>
@@ -76,7 +76,7 @@ export default function Month() {
               day.outcome === "penalty" ? "border-coral/30 bg-coral/10" :
               day.outcome === "skipped" ? "border-sky/30 bg-sky/10" :
               day.outcome === "no_loser" ? "border-lime/25 bg-lime/[0.07]" :
-              future ? "border-transparent bg-white/[0.015] opacity-40" : "border-line bg-white/[0.03]";
+              future ? "border-transparent bg-fg/[0.015] opacity-40" : "border-line bg-fg/[0.03]";
             const tip = day.outcome
               ? day.outcome === "no_loser"
                 ? "Everyone hit 10k"
@@ -123,7 +123,7 @@ export default function Month() {
                   const paid = day.payers.includes(t.userId);
                   const skipped = day.skippers.includes(t.userId);
                   return (
-                    <td key={t.userId} className={`px-1 py-1.5 text-right ${paid ? "font-bold text-coral" : skipped ? "text-sky" : s != null && s >= 10000 ? "text-zinc-200" : "text-muted"}`}>
+                    <td key={t.userId} className={`px-1 py-1.5 text-right ${paid ? "font-bold text-coral" : skipped ? "text-sky" : s != null && s >= 10000 ? "text-strong" : "text-muted"}`}>
                       {s == null ? "–" : s >= 1000 ? `${(s / 1000).toFixed(1)}k` : s}
                       {skipped && "🛡️"}
                       {entry?.rawSteps != null && entry.gameSteps != null && <div className="mt-1 whitespace-nowrap text-[10px] font-normal text-muted">

@@ -84,7 +84,7 @@ export default function GroupPage() {
           <Notice>
             Invite emailed to {invited.invited}. You can also text them the link:
             <span className="mt-2 flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded bg-black/30 px-2 py-1 font-mono text-xs">{invited.link}</code>
+              <code className="min-w-0 flex-1 truncate rounded bg-field px-2 py-1 font-mono text-xs">{invited.link}</code>
               <button type="button" className="btn-ghost !py-1 text-xs" onClick={() => navigator.clipboard.writeText(invited.link ?? "")}>Copy</button>
             </span>
           </Notice>
@@ -94,7 +94,7 @@ export default function GroupPage() {
         {invites.length > 0 && (
           <ul className="mt-4 divide-y divide-line/60 rounded-xl border border-line">
             {invites.map((i) => (
-              <InviteRow key={i.id} i={i} />
+              <InviteRow key={i.id} i={i} timezone={group.timezone} />
             ))}
           </ul>
         )}
@@ -182,13 +182,13 @@ export default function GroupPage() {
   );
 }
 
-function InviteRow({ i }: { i: { id: string; email: string; expires_at: number } }) {
+function InviteRow({ i, timezone }: { i: { id: string; email: string; expires_at: number }; timezone: string }) {
   const f = useFetcher();
   return (
     <li className="flex items-center justify-between px-3 py-2.5 text-sm">
       <span>
-        <span className="text-zinc-200">{i.email}</span>
-        <span className="ml-2 text-xs text-muted">pending · expires {new Date(i.expires_at).toLocaleDateString()}</span>
+        <span className="text-strong">{i.email}</span>
+        <span className="ml-2 text-xs text-muted">pending · expires {new Date(i.expires_at).toLocaleDateString("en-US", { timeZone: timezone })}</span>
       </span>
       <f.Form method="post">
         <input type="hidden" name="intent" value="revoke" />

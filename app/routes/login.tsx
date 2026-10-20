@@ -46,7 +46,7 @@ export default function Login() {
           <div className="text-4xl">📬</div>
           <p className="mt-3 font-medium">Check your inbox</p>
           <p className="mt-1 text-sm text-muted">
-            If <span className="text-zinc-200">{sent}</span> is in a group, a login link is on its way. It expires in 20 minutes.
+            If <span className="text-strong">{sent}</span> is in a group, a login link is on its way. It expires in 20 minutes.
           </p>
           <a href="/login" className="btn-ghost mt-6 w-full">Use a different email</a>
         </div>

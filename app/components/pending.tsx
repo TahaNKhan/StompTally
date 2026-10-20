@@ -41,7 +41,7 @@ export function PendingBoundary({ children }: { children: ReactNode }) {
             <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-lime/10 text-lime">
               <Spinner className="h-7 w-7" />
             </div>
-            <p className="font-display text-lg font-bold text-zinc-100">{message}</p>
+            <p className="font-display text-lg font-bold text-strong">{message}</p>
             <p className="mt-2 text-sm text-muted">Hang tight. No need to tap again.</p>
           </div>
         </div>

@@ -27,7 +27,7 @@ export function LogSteps({ today, yesterday, myToday, myYesterday }: { today: st
                 key={k}
                 type="button"
                 onClick={() => setDay(k)}
-                className={`rounded-md px-2.5 py-1 font-medium capitalize transition ${day === k ? "bg-white/10 text-white" : "text-muted"}`}
+                className={`rounded-md px-2.5 py-1 font-medium capitalize transition ${day === k ? "bg-fg/10 text-strong" : "text-muted"}`}
               >
                 {k}
               </button>
@@ -37,7 +37,7 @@ export function LogSteps({ today, yesterday, myToday, myYesterday }: { today: st
       </div>
       <p className="mt-1 text-sm text-muted">
         Set a manual step count for {formatDay(date)}. This changes your tally for that day.
-        {current != null && <> Currently <b className="text-zinc-200">{fmtSteps(current)}</b>.</>}
+        {current != null && <> Currently <b className="text-strong">{fmtSteps(current)}</b>.</>}
       </p>
       <p className="mt-2 text-xs text-muted">Each save is kept in the change log. Stompers pulls keep updating your API counts and leave your manual score in place.</p>
       <f.Form ref={formRef} method="post" className="mt-4 flex gap-2">

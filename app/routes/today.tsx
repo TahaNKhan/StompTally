@@ -63,12 +63,12 @@ function Board({ day, sync, me, threshold, penalty, skips, skipsUsed, now, label
           const pct = Math.min(100, ((r.steps ?? 0) / max) * 100);
           const hit = (r.steps ?? 0) >= threshold;
           const danger = losers.has(r.userId);
-          const color = hit ? "#b6f35c" : danger ? "#ff6b6b" : "#ffc857";
+          const color = hit ? "var(--color-lime)" : danger ? "var(--color-coral)" : "var(--color-amber)";
           return (
             <li key={r.userId} className="relative px-5 py-3.5">
               <div className="flex items-center gap-3">
                 <span className="w-4 text-center font-display text-sm text-muted">{i + 1}</span>
-                <Avatar id={r.userId} name={r.name} size={34} ring={danger ? "#ff6b6b" : undefined} />
+                <Avatar id={r.userId} name={r.name} size={34} ring={danger ? "var(--color-coral)" : undefined} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-semibold">{r.name}{r.userId === me && <span className="text-muted"> (you)</span>}</span>
@@ -92,9 +92,9 @@ function Board({ day, sync, me, threshold, penalty, skips, skipsUsed, now, label
                   {fmtSteps(r.steps)}
                 </div>
               </div>
-              <div className="relative ml-[3.25rem] mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="relative ml-[3.25rem] mt-2 h-1.5 overflow-hidden rounded-full bg-fg/[0.06]">
                 <div className="bar-grow h-full rounded-full" style={{ width: `${pct}%`, background: color, animationDelay: `${i * 60}ms` }} />
-                <div className="absolute top-0 h-full w-px bg-white/40" style={{ left: `${(threshold / max) * 100}%` }} />
+                <div className="absolute top-0 h-full w-px bg-fg/40" style={{ left: `${(threshold / max) * 100}%` }} />
               </div>
             </li>
           );
@@ -102,7 +102,7 @@ function Board({ day, sync, me, threshold, penalty, skips, skipsUsed, now, label
       </ul>
 
       {!day.finalized && mine && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-line bg-black/20 px-5 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-line bg-sunken px-5 py-3">
           {mine.skipClaimed ? (
             <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2">
               <input type="hidden" name="date" value={day.date} />
@@ -159,7 +159,7 @@ export default function Today() {
         </div>
         <div className="card p-4 rise" style={{ animationDelay: "60ms" }}>
           <div className="text-xs font-medium uppercase tracking-wider text-muted">You owe</div>
-          <div className={`mt-1 font-display text-3xl font-bold ${meTotal?.cents ? "text-coral" : "text-zinc-100"}`}>{money(meTotal?.cents ?? 0)}</div>
+          <div className={`mt-1 font-display text-3xl font-bold ${meTotal?.cents ? "text-coral" : "text-strong"}`}>{money(meTotal?.cents ?? 0)}</div>
           <div className="text-xs text-muted">{meTotal?.losses ?? 0} losing day{meTotal?.losses === 1 ? "" : "s"}</div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server
 import { AppError, recordSteps, renameSelf } from "../lib/service";
 import { LogSteps } from "../components/manual-steps";
 import { ManualHistory } from "../components/manual-history";
+import { ThemeSwitch } from "../components/theme-switch";
 import { loadMe } from "../lib/pages";
 import { linkStompers, unlinkStompers, syncStompers } from "../lib/stompers.server";
 import { rateLimit } from "../lib/http.server";
@@ -94,7 +95,7 @@ export default function Me() {
 
       <section className="card p-5 rise">
         <h2 className="font-display text-lg font-bold">How it works</h2>
-        <ul className="mt-3 space-y-2.5 text-sm text-zinc-300">
+        <ul className="mt-3 space-y-2.5 text-sm text-soft">
           <li>👟 Link <b>Stompers</b> to pull both counts every two hours. The higher count wins. Log manual changes here; each save is kept in the change log.</li>
           <li>👟 Lowest under {rules.threshold.toLocaleString("en-US")} each day owes <b className="text-lime">${rules.penalty / 100}</b>. Ties: everyone tied pays.</li>
           <li>🫥 Didn't log? That counts as 0.</li>
@@ -102,6 +103,8 @@ export default function Me() {
           <li>🔒 Each day locks at 12:05 AM the next day. After that only the admin can fix it.</li>
         </ul>
       </section>
+
+      <ThemeSwitch />
 
       <LogoutButton />
     </div>

@@ -60,11 +60,11 @@ export default function Invite() {
       title={`Join ${invite.groupName}`}
       subtitle={
         <>
-          <span className="text-zinc-200">{invite.inviter}</span> invited <span className="text-zinc-200">{invite.email}</span>
+          <span className="text-strong">{invite.inviter}</span> invited <span className="text-strong">{invite.email}</span>
         </>
       }
     >
-      <ul className="mb-5 space-y-2 text-sm text-zinc-300">
+      <ul className="mb-5 space-y-2 text-sm text-soft">
         <li>👟 Lowest steps under 10k each day owes <b className="text-lime">$5</b></li>
         <li>🤝 Ties: everyone tied pays</li>
         <li>🛡️ 3 skip days a month, claimed before the day locks at 12:05 AM</li>
