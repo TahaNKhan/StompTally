@@ -60,7 +60,7 @@ export function Shell({ children, user, groupName, isAdmin, myAvatar }: { childr
     { to: "/me", label: "Me", icon: "👟" },
   ];
   return (
-    <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-28 pt-[max(env(safe-area-inset-top),1rem)]">
+    <div className="page-top mx-auto min-h-dvh max-w-2xl px-4 pb-28">
       <header className="flex items-center justify-between py-3">
         <Link to="/" className="flex items-center gap-2.5">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-lime text-lg">👟</span>

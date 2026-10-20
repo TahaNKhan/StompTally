@@ -87,6 +87,34 @@ body {
   @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted;
 }
 
+/* Top spacing for the page. Normal browsers keep 1rem; the safe area wins if it is larger. */
+.page-top {
+  padding-top: max(env(safe-area-inset-top), 1rem);
+}
+
+/*
+ * iOS home screen app (set by IOS_STANDALONE_BOOT_SCRIPT). With a translucent status bar the page
+ * scrolls underneath the clock and battery, so we add breathing room and a blurred strip that
+ * fades out downward. The strip is exactly the safe-area height, so it only covers the status bar.
+ */
+:root[data-ios-standalone] .page-top {
+  padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 1rem);
+}
+
+:root[data-ios-standalone] body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: env(safe-area-inset-top);
+  z-index: 40;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.65) 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.65) 80%, transparent 100%);
+}
+
 @keyframes grow {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }

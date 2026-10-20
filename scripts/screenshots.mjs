@@ -112,8 +112,13 @@ try {
   mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || "/usr/bin/chromium" });
   try {
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: "reduce", colorScheme: SCHEME, timezoneId: TZ, locale: "en-US" });
+    // SHOTS_IOS=standalone fakes an iPhone home screen app (iOS user agent + navigator.standalone).
+    // SHOTS_FAKE_INSET=59 additionally stands in for the notch-sized safe area that desktop browsers report as 0.
+    const ios = process.env.SHOTS_IOS === "standalone";
+    const context = await browser.newContext({
+      ...(ios ? { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1", hasTouch: true, isMobile: true } : {}), viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: "reduce", colorScheme: SCHEME, timezoneId: TZ, locale: "en-US" });
     await context.addCookies([{ name: "st_session", value: SESSION_ID, url: BASE }]);
+    if (ios) await context.addInitScript(() => Object.defineProperty(navigator, "standalone", { value: true }));
     const page = await context.newPage();
     // Phone-sized frames keep the fixed bottom nav at the bottom, as on a real device.
     const pages = [["today", "/", 1180], ["month", "/month", 1000], ["ledger", "/history", 844], ["me", "/me", 1100], ["group", "/group", 1100]];
@@ -131,8 +136,26 @@ try {
         console.error(serverLog.join("").slice(-3000));
         throw new Error(`${path} returned HTTP ${response?.status()}; refusing to save an error page`);
       }
+      if (ios && process.env.SHOTS_FAKE_INSET) {
+        // Desktop browsers report a 0 px safe area. Substitute a notch-sized value in the real rules to see the result.
+        await page.addStyleTag({ content: `:root[data-ios-standalone] .page-top { padding-top: max(calc(${process.env.SHOTS_FAKE_INSET}px + 0.5rem), 1rem) !important; }
+          :root[data-ios-standalone] body::before { height: ${process.env.SHOTS_FAKE_INSET}px !important; }` });
+        await page.evaluate(() => window.scrollTo(0, 190)); // scroll content up under the status bar
+      }
       await page.waitForTimeout(400);
-      const probe = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, body: getComputedStyle(document.body).backgroundColor, at: location.pathname }));
+      const probe = await page.evaluate(() => {
+        const wrapper = document.querySelector(".page-top");
+        const strip = getComputedStyle(document.body, "::before");
+        return {
+          theme: document.documentElement.dataset.theme,
+          body: getComputedStyle(document.body).backgroundColor,
+          at: location.pathname,
+          iosStandalone: document.documentElement.hasAttribute("data-ios-standalone"),
+          padTop: wrapper ? getComputedStyle(wrapper).paddingTop : null,
+          stripHeight: strip.content === "none" ? null : strip.height,
+          stripBlur: strip.content === "none" ? null : strip.backdropFilter,
+        };
+      });
       console.log(`  ${name}: ${response.status()} ${JSON.stringify({ ...probe, title: await page.title(), h1: (await page.locator('h1,h2').first().innerText().catch(() => '')).slice(0, 60) })}`);
       await page.screenshot({ path: join(OUT, `${name}.png`) });
       console.log(`✓ screenshots/${name}.png`);
