@@ -1,5 +1,7 @@
 import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useOnline } from "../components/offline-bar";
+import { WRITE_BLOCKED_MESSAGE, writesAllowed } from "../lib/offline";
 import { Countdown } from "../components/countdown";
 import type { Route } from "./+types/today";
 import { Avatar, ErrorNote, fmtSteps, money, Notice, timeAgo } from "../components/ui";
@@ -58,6 +60,9 @@ function LiveBadge({ gameEndsAt, locksAt, serverNow, onLocked }: { gameEndsAt: n
 
 function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, now, label, live, gameEndsAt, locksAt, onLocked }: { day: Day; sync: Sync; avatars: Avatars; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean; gameEndsAt?: number; locksAt?: number; onLocked?: () => void }) {
   const fetcher = useFetcher<typeof action>();
+  // Same rule as manual steps: a skip is a write, so it is refused offline instead of failing later.
+  const online = useOnline();
+  const blockedOffline = (event: React.FormEvent) => { if (!writesAllowed(online)) event.preventDefault(); };
   const max = Math.max(threshold * 1.5, ...day.rows.map((r) => r.steps ?? 0));
   const losers = new Set(day.preview.loserIds);
   const payers = new Set(day.preview.penalties.map((p) => p.userId));
@@ -127,13 +132,13 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
       {live && mine && (
         <div className="flex flex-wrap items-center gap-2 border-t border-line bg-sunken px-5 py-3">
           {mine.skipClaimed ? (
-            <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2">
+            <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2" onSubmit={blockedOffline}>
               <input type="hidden" name="date" value={day.date} />
               <span className="text-sm text-sky">🛡️ Skip claimed. You're safe if you end up last.</span>
-              <PendingButton name="intent" value="unskip" className="btn-ghost !py-1.5 text-xs" busy={fetcher.state !== "idle"} pendingLabel="Undoing…">Undo</PendingButton>
+              <PendingButton name="intent" value="unskip" className="btn-ghost !py-1.5 text-xs" busy={fetcher.state !== "idle"} pendingLabel="Undoing…" disabled={!online}>Undo</PendingButton>
             </fetcher.Form>
           ) : (
-            <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2">
+            <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2" onSubmit={blockedOffline}>
               <input type="hidden" name="date" value={day.date} />
               <span className="text-sm text-muted">
                 {losers.has(me) ? "You're last right now." : "Rough day?"} {skips - myUsed} skip{skips - myUsed === 1 ? "" : "s"} left this month.
@@ -143,7 +148,7 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
                 value="skip"
                 busy={fetcher.state !== "idle"}
                 pendingLabel="Claiming…"
-                disabled={myUsed >= skips}
+                disabled={myUsed >= skips || !online}
                 className="btn-ghost shrink-0 whitespace-nowrap !py-1.5 text-xs"
                 onClick={(e) => {
                   if (!confirm(`Use a skip for ${formatDay(day.date)}? It only counts if you'd have paid.`)) e.preventDefault();
@@ -153,6 +158,7 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
               </PendingButton>
             </fetcher.Form>
           )}
+          {!online && <p className="w-full text-xs text-amber">{WRITE_BLOCKED_MESSAGE}</p>}
           <ErrorNote error={err} />
         </div>
       )}

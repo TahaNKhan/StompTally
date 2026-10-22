@@ -81,7 +81,7 @@ export function Shell({ children, user, groupName, isAdmin, myAvatar }: { childr
         </div>
       </header>
       <InstallBanner />
-      <main className="mt-2">{children}</main>
+      <main className="mt-2 space-y-3">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto grid max-w-2xl grid-cols-4">
           {tabs.map((t) => (

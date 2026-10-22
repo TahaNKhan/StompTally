@@ -35,7 +35,7 @@ All data below is invented. Regenerate with `node scripts/screenshots.mjs`.
 
 ## Stack
 
-React Router v8 (SSR) · Cloudflare Workers · D1 (SQLite) · Cron Trigger (30-minute sync and finalize) · Tailwind v4 · Resend (email) · Vitest
+React Router v8 (SSR) · Cloudflare Workers · D1 (SQLite) · Cron Trigger (30-minute sync and finalize) · Tailwind v4 · Resend (email) · Service worker (offline reading) · Vitest
 
 ## Layout
 
@@ -49,11 +49,15 @@ app/lib/db.ts           Db interface + D1 adapter with request-scoped timing
 app/lib/dates.ts        timezone / lock-time helpers
 app/lib/avatars.ts      one photo per person in D1 (user_id is the primary key); app/routes/avatar.tsx serves it to the group
 app/lib/mail.server.ts  Resend sender (logs to console when no API key)
+app/lib/offline.ts      client-only offline helpers (register the worker, connection state, cache age)
+public/sw.js            the service worker: three caches, network-first for anything private
+app/components/offline-bar.tsx  the "Offline" strip and the useOnline hook
 app/routes/             pages: today, month, history (ledger), me, group (admin), login, invite, setup
 workers/app.ts          Worker entry: security headers + 30-minute sync before finalize
 migrations/             D1 schema
 scripts/smoke.sh        end-to-end HTTP smoke test against `npm run dev`
 scripts/screenshots.mjs seeds a throwaway local DB with fake data and renders screenshots/
+scripts/offline-e2e.mjs builds, serves with wrangler, and cuts the network at the browser
 ```
 
 ## Develop
@@ -88,6 +92,12 @@ DEV_PID=$!
 LOG=$LOG bash scripts/smoke.sh
 LOG=$LOG node scripts/pending-browser.mjs # requires Chromium
 kill "$DEV_PID"
+```
+
+Offline mode only exists in a real build, so that check builds and serves the worker itself:
+
+```bash
+node scripts/offline-e2e.mjs   # requires Chromium; needs no dev server
 ```
 
 ## Deploy
@@ -156,6 +166,25 @@ The one-time links for the five original signed-up users are in
 `npx wrangler d1 execute stomp-tally --remote --file scripts/stompers-seed.sql`.
 It checks the original user IDs and names and never overwrites existing links.
 
+## Offline
+
+The app is readable with no signal. `public/sw.js` registers on first load and keeps three caches:
+icons and the manifest, hashed build output, and the pages you have actually visited.
+
+Nothing private is cached until you have opened it once. Pages are network-first, so a board is
+never served from a stale copy while there is a signal, and the `.data` payloads that client-side
+navigation fetches are handled the same way. Signing out clears the page cache outright, so a shared
+phone keeps nothing.
+
+Every page arrives from the worker with `Cache-Control: private, no-store`, and the Cache API
+refuses to store a response marked `no-store`. The worker re-wraps each page with a storable header
+before caching it. That header governs the browser's own HTTP cache, which is separate, and this
+worker is the only thing that reads this cache back.
+
+Writes are refused, not queued. Saving steps or claiming a skip while offline is blocked in the
+form and said out loud, because a queued submit that fails later leaves you unsure whether it saved.
+
 ## Not built yet
 
 - Screenshot upload as a dispute fallback.
+- Queueing an offline step entry and replaying it when the signal returns.

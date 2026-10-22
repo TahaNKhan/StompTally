@@ -4,9 +4,12 @@ import type { action } from "../routes/me";
 import { ErrorNote, fmtSteps } from "./ui";
 import { PendingButton } from "./pending";
 import { formatDay } from "../lib/dates";
+import { useOnline } from "./offline-bar";
+import { WRITE_BLOCKED_MESSAGE, writesAllowed } from "../lib/offline";
 
 export function LogSteps({ today, yesterday, myToday, myYesterday }: { today: string; yesterday: string | null; myToday: number | null; myYesterday: number | null | undefined }) {
   const f = useFetcher<typeof action>();
+  const online = useOnline();
   const [day, setDay] = useState<"today" | "yesterday">("today");
   const date = day === "today" || !yesterday ? today : yesterday;
   const current = day === "today" ? myToday : myYesterday ?? null;
@@ -40,7 +43,14 @@ export function LogSteps({ today, yesterday, myToday, myYesterday }: { today: st
         {current != null && <> Currently <b className="text-strong">{fmtSteps(current)}</b>.</>}
       </p>
       <p className="mt-2 text-xs text-muted">Each save is kept in the change log. Stompers pulls keep updating your API counts and leave your manual score in place.</p>
-      <f.Form ref={formRef} method="post" className="mt-4 flex gap-2">
+      <f.Form
+        ref={formRef}
+        method="post"
+        className="mt-4 flex gap-2"
+        // Offline the server cannot be reached, so the save is refused here and said out loud.
+        // Letting it through would show a spinner, fail, and leave the person guessing.
+        onSubmit={(event) => { if (!writesAllowed(online)) event.preventDefault(); }}
+      >
         <input type="hidden" name="intent" value="manual" />
         <input type="hidden" name="date" value={date} />
         <input
@@ -55,11 +65,12 @@ export function LogSteps({ today, yesterday, myToday, myYesterday }: { today: st
           placeholder={current != null ? String(current) : "e.g. 11240"}
           className="input font-display text-lg tabular-nums"
         />
-        <PendingButton className="btn-primary shrink-0 !px-5" busy={f.state !== "idle"}>
+        <PendingButton className="btn-primary shrink-0 !px-5" busy={f.state !== "idle"} disabled={!online}>
           {current != null ? "Update" : "Save"}
         </PendingButton>
       </f.Form>
       {saved && <p className="mt-2 text-xs text-lime">✓ Saved</p>}
+      {!online && <p className="mt-2 text-xs text-amber">{WRITE_BLOCKED_MESSAGE}</p>}
       <ErrorNote error={f.data && "error" in f.data ? f.data.error : null} />
       {yesterday && <p className="mt-2 text-xs text-muted">The game ends at 9:00 PM; days lock at 9:15 PM. Update anytime before then.</p>}
     </section>
