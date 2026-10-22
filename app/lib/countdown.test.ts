@@ -1,0 +1,85 @@
+import { describe, expect, it } from "vitest";
+import { countdownLabel, msUntilLabelChanges } from "./countdown";
+import { lockInstant, zonedInstant } from "./dates";
+
+const S = 1000, M = 60 * S, H = 60 * M;
+const T = 1_000_000_000_000;
+
+describe("countdownLabel", () => {
+  it.each([
+    [3 * H + 20 * M, "3 hrs"],
+    [2 * H - 1, "1 hr"],
+    [1 * H, "1 hr"],
+    [1 * H - 1, "59 mins"],
+    [2 * M, "2 mins"],
+    [61 * S, "1 min"],
+    [60 * S, "1 min"],
+    [59 * S, "59 secs"],
+    [1 * S, "1 sec"],
+    [1, "1 sec"],
+  ])("%i ms left reads %s", (left, label) => {
+    expect(countdownLabel(T + left, T)).toBe(label);
+  });
+
+  it("returns null once the target has passed", () => {
+    expect(countdownLabel(T, T)).toBeNull();
+    expect(countdownLabel(T - 5, T)).toBeNull();
+  });
+});
+
+describe("msUntilLabelChanges", () => {
+  // Walk the clock forward by exactly the returned wait: the label must change every step, and
+  // waking even 1 ms earlier must still show the old label. That proves no wasted redraws.
+  it("wakes exactly when the label changes, never sooner", () => {
+    const target = T + 2 * H + 3 * M + 4 * S + 500;
+    let now = T;
+    let label = countdownLabel(target, now);
+    const seen = [label];
+    while (label) {
+      const wait = msUntilLabelChanges(target, now);
+      expect(countdownLabel(target, now + wait - 1)).toBe(label);
+      now += wait;
+      const next = countdownLabel(target, now);
+      expect(next).not.toBe(label);
+      label = next;
+      seen.push(label);
+    }
+    expect(seen.slice(0, 2)).toEqual(["2 hrs", "1 hr"]);
+    expect(seen).toContain("1 hr");
+    expect(seen).toContain("59 mins");
+    expect(seen).toContain("1 min");
+    expect(seen).toContain("59 secs");
+    expect(seen.at(-2)).toBe("1 sec");
+    expect(seen.at(-1)).toBeNull();
+  });
+
+  it("redraws a handful of times per hour, not every second, until the last minute", () => {
+    const target = T + 5 * H;
+    let now = T, wakes = 0;
+    while (target - now > 60 * S) { now += msUntilLabelChanges(target, now); wakes++; }
+    // 5 hour labels down to 1 hr, then 59 minute labels to "1 min"
+    expect(wakes).toBeLessThanOrEqual(5 + 59);
+  });
+
+  it("is Infinity after the target", () => {
+    expect(msUntilLabelChanges(T, T)).toBe(Infinity);
+  });
+});
+
+describe("lockInstant", () => {
+  const tz = "America/Los_Angeles";
+  it("is 21:05 Pacific in summer time (PDT, UTC-7)", () => {
+    expect(new Date(lockInstant("2026-10-21", tz)).toISOString()).toBe("2026-10-22T04:05:00.000Z");
+  });
+  it("is 21:05 Pacific in winter time (PST, UTC-8)", () => {
+    expect(new Date(lockInstant("2026-11-02", tz)).toISOString()).toBe("2026-11-03T05:05:00.000Z");
+  });
+  it("is right on the day daylight saving ends and the day it starts", () => {
+    expect(new Date(lockInstant("2026-11-01", tz)).toISOString()).toBe("2026-11-02T05:05:00.000Z");
+    expect(new Date(lockInstant("2026-03-08", tz)).toISOString()).toBe("2026-03-09T04:05:00.000Z");
+  });
+  it("works east of UTC and at UTC", () => {
+    expect(new Date(zonedInstant("2026-10-21", 21 * 60 + 5, "Pacific/Kiritimati")).toISOString()).toBe("2026-10-21T07:05:00.000Z");
+    expect(new Date(zonedInstant("2026-10-21", 21 * 60 + 5, "UTC")).toISOString()).toBe("2026-10-21T21:05:00.000Z");
+  });
+});

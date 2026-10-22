@@ -59,6 +59,29 @@ export function lastFinalizableDate(now: Date, timeZone: string): string {
   return addDays(date, hour * 60 + minute >= FINALIZE_MINUTE_OF_DAY ? 0 : -1);
 }
 
+/** Milliseconds `timeZone` is ahead of UTC at `instant` (negative for the Americas). */
+function zoneOffsetMs(instant: number, timeZone: string): number {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      .formatToParts(new Date(instant))
+      .map((part) => [part.type, part.value]),
+  );
+  const asUtc = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute), Number(p.second));
+  return asUtc - (instant - (instant % 1000));
+}
+
+/** The instant a local wall-clock time happens in `timeZone`, e.g. 21:05 on 2026-10-21 in Los Angeles. */
+export function zonedInstant(date: string, minuteOfDay: number, timeZone: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  const wall = Date.UTC(y, m - 1, d, Math.floor(minuteOfDay / 60), minuteOfDay % 60);
+  // Guess with the offset at the wall time, then correct once: right even on daylight-saving days.
+  const guess = wall - zoneOffsetMs(wall, timeZone);
+  return wall - zoneOffsetMs(guess, timeZone);
+}
+
+/** When `date` locks: FINALIZE_MINUTE_OF_DAY on that day, local time. */
+export const lockInstant = (date: string, timeZone: string) => zonedInstant(date, FINALIZE_MINUTE_OF_DAY, timeZone);
+
 /** A skip for `date` can be claimed or undone only while it is still that day, locally. */
 export function canChangeSkip(date: string, now: Date, timeZone: string): boolean {
   return localDate(now, timeZone) === date;
