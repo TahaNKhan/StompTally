@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
 import { countdownLabel } from "../app/lib/countdown.ts";
+import { GAME_END_LABEL, LOCK_TIME_LABEL } from "../app/lib/dates.ts";
 
 const port = await new Promise((resolve, reject) => {
   const probe = createServer(); probe.once("error", reject);
@@ -49,32 +50,38 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     const requests = []; page.on("request", (r) => requests.push(new URL(r.url()).pathname));
     await page.goto(`${BASE}/`, { waitUntil: "load" });
-    const badge = page.locator("time");
-    await badge.waitFor();
-
-    const locksAt = Date.parse(await badge.getAttribute("datetime"));
-    const local = new Date(locksAt).toLocaleString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true });
-    assert.equal(local, "9:05 PM", `lock time should be 9:05 PM Pacific, got ${local}`);
-    pass(`server sent the lock time: ${local} Pacific`);
 
     // The badge belongs to Today, which is the second card; the first is Yesterday, already locked
-    // and showing the static "Locks at 9:05 PM" instead. Scope to Today by its label.
+    // and showing the static lock time instead. Scope to Today by its label.
     const todayCard = page.locator("section.card").filter({ hasText: "TODAY" });
     const header = (await todayCard.innerText()).split("\n").slice(0, 4).join(" / ");
-    assert.match(header, /Live · locks in/, `the open day should show the live badge, header read "${header}"`);
-    pass(`Today shows the live badge: ${header}`);
+    assert.match(header, /Live · ends in|Final in|Waiting for final counts/, `the open day should show the live badge, header read "${header}"`);
 
-    // The label is read a moment after the clock sample, so accept either side of that gap: at a
-    // unit boundary the label may legitimately have just flipped. Anything else means the badge is
-    // showing a time the server did not send.
-    const { label, before, after } = await page.evaluate(() => {
-      const before = Date.now();
-      const label = document.querySelector("time").textContent;
-      return { label, before, after: Date.now() };
-    });
-    const plausible = new Set([countdownLabel(locksAt, before), countdownLabel(locksAt, after), "now"]);
-    assert.ok(plausible.has(label), `badge shows "${label}", but ${new Date(before).toISOString()} to ${new Date(after).toISOString()} before the lock reads ${[...plausible].join(" or ")}`);
-    pass(`badge counts down on its own ("${label}" with the real clock)`);
+    // The day has two instants: the game window shuts at 9:00 PM and the day locks at 9:15. Which
+    // one the badge counts to depends on the real time, and once the lock has passed there is no
+    // countdown left to show -- so this script passes at any hour, checking whichever state it lands in.
+    const badge = page.locator("time");
+    if ((await badge.count()) === 0) {
+      assert.match(header, /Waiting for final counts/, `with no countdown left the badge should say it is waiting, read "${header}"`);
+      pass(`past the ${LOCK_TIME_LABEL} lock, so Today waits for the result instead of counting`);
+    } else {
+      const target = Date.parse(await badge.getAttribute("datetime"));
+      const shown = new Date(target).toLocaleString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true });
+      assert.ok([GAME_END_LABEL, LOCK_TIME_LABEL].includes(shown), `the badge should count to ${GAME_END_LABEL} or ${LOCK_TIME_LABEL} Pacific, counted to ${shown}`);
+      pass(`server sent ${shown} Pacific as the next instant (${Math.round((target - Date.now()) / 60_000)} min away)`);
+
+      // The label is read a moment after the clock sample, so accept either side of that gap: at a
+      // unit boundary the label may legitimately have just flipped. Anything else means the badge is
+      // showing a time the server did not send.
+      const { label, before, after } = await page.evaluate(() => {
+        const before = Date.now();
+        const label = document.querySelector("time").textContent;
+        return { label, before, after: Date.now() };
+      });
+      const plausible = new Set([countdownLabel(target, before), countdownLabel(target, after), "now"]);
+      assert.ok(plausible.has(label), `badge shows "${label}", but ${new Date(before).toISOString()} to ${new Date(after).toISOString()} before that instant reads ${[...plausible].join(" or ")}`);
+      pass(`badge counts down on its own ("${label}" with the real clock)`);
+    }
 
     const polled = requests.filter((path) => path.endsWith(".data"));
     assert.deepEqual(polled, [], `rendering the badge should not need a data reload, saw ${polled.join(", ")}`);

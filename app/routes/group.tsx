@@ -176,7 +176,7 @@ export default function GroupPage() {
             <ErrorNote error={settings.data && "error" in settings.data ? settings.data.error : null} />
           </div>
         </settings.Form>
-        <p className="mt-4 text-xs text-muted">Lowest steps under the goal pays. Ties: everyone tied pays. No sync = 0 steps. Days lock at 9:05 PM. Skips stay open until midnight.</p>
+        <p className="mt-4 text-xs text-muted">Lowest steps under the goal pays. Ties: everyone tied pays. No sync = 0 steps. The game ends at 9:00 PM; days lock at 9:15 PM. Skips stay open until midnight.</p>
       </section>
     </div>
   );

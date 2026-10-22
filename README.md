@@ -29,8 +29,8 @@ All data below is invented. Regenerate with `node scripts/screenshots.mjs`.
 - Linked accounts keep their last successful counts when the API fails. Missing or stale API data delays locking instead of generating a zero-step penalty. An explicit manual fallback or admin correction can still lock.
 - Both imported counts appear on Today and Month. An admin correction overrides the imported score; later pulls still refresh the two API counts.
 - Manual step entry lives on Me. Each save creates a separate immutable manual entry and an audit event with the previous score and API snapshot. The manual score overrides that day's tally while scheduled pulls continue updating both API counts. Members see their own change history on Me; admins see their group's history on Group.
-- Each person logs their own steps for today, or yesterday until it locks. Days lock at **9:05 PM** (group timezone): steps freeze and the result is set, then only an admin can correct them.
-- **Skips:** 3 per person per calendar month, claimed manually by **midnight**, even after the 9:05 PM lock; a late skip recomputes that day. A skip is only used up if it actually saves you from paying. Otherwise it's released. A used skip never moves the penalty to someone else.
+- Each person logs their own steps for today, or yesterday until it locks. The Stompers game window ends at **9:00 PM** (group timezone), and each day locks at **9:15 PM**: steps freeze and the result is set, then only an admin can correct them. The 15-minute gap is so the last walk of the day still lands.
+- **Skips:** 3 per person per calendar month, claimed manually by **midnight**, even after the 9:15 PM lock; a late skip recomputes that day. A skip is only used up if it actually saves you from paying. Otherwise it's released. A used skip never moves the penalty to someone else.
 - An admin can correct any past day. Correcting a locked day recomputes it.
 
 ## Stack
@@ -137,10 +137,10 @@ Run after `scripts/smoke.sh` against its local fixture. Uses Chromium at `/usr/b
 
 ## Stompers reads
 
-Cron runs at minutes 5 and 35 of every hour (`5,35 * * * *`). 21:05 Pacific is 04:05 UTC (PDT) or 05:05 UTC (PST), both on the schedule. A group in another time zone locks at its first run after its own 00:05. It resolves
+Cron runs at minutes 15 and 45 of every hour (`15,45 * * * *`). 21:15 Pacific is 04:15 UTC (PDT) or 05:15 UTC (PST), both landing on a `:15` run, so the day locks at 21:15 sharp rather than waiting for the next half hour. Each run syncs counts *before* it locks, so the 21:15 run carries the day's final numbers -- the game window shut at 21:00. A group in another time zone locks at its first run after its own lock time. It resolves
 `USER_UID_friends`, reads `current_game_uid`, and fetches the current game.
 It also reads recent games and caches known game IDs so yesterday can be
-refreshed before the 9:05 PM lock, even when the history list omits it.
+refreshed before the 9:15 PM lock, even when the history list omits it.
 Only today/yesterday, after joining the group, are imported. Finalized days
 remain unchanged. API games must span one full local day in the group timezone;
 both counts must be valid numbers. A linked API entry must have a successful

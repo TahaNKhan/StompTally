@@ -1,12 +1,12 @@
 import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Countdown } from "../components/countdown";
 import type { Route } from "./+types/today";
 import { Avatar, ErrorNote, fmtSteps, money, Notice, timeAgo } from "../components/ui";
 import { PendingButton } from "../components/pending";
 import { db, formAction, memberOr, requireMember, sid } from "../lib/http.server";
 import { AppError, cancelSkip, claimSkip } from "../lib/service";
-import { formatDay } from "../lib/dates";
+import { formatDay, LOCK_TIME_LABEL } from "../lib/dates";
 import { loadToday } from "../lib/pages";
 import { describeSync } from "../lib/views";
 
@@ -33,7 +33,30 @@ type Day = Awaited<ReturnType<typeof loader>>["today"];
 type Sync = Awaited<ReturnType<typeof loader>>["sync"];
 type Avatars = Awaited<ReturnType<typeof loader>>["avatars"];
 
-function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, now, label, live, locksAt, onLocked }: { day: Day; sync: Sync; avatars: Avatars; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean; locksAt?: number; onLocked?: () => void }) {
+/**
+ * The Today badge before the day locks. The Stompers game window shuts at 9:00 PM and the day locks
+ * at 9:15, so the badge counts to the game end while play is on, then to the lock, then waits for
+ * the result. "Waiting" is the honest word for that last stage: the lock run skips a day whose
+ * counts are still stale (see finalizeDay), so it can sit there for more than one cron cycle.
+ * The stage is seeded from the server's clock so the first paint matches hydration, and each
+ * countdown advances the stage when its own instant passes.
+ */
+function LiveBadge({ gameEndsAt, locksAt, serverNow, onLocked }: { gameEndsAt: number; locksAt: number; serverNow: number; onLocked: () => void }) {
+  type Stage = "playing" | "awaiting-lock" | "waiting";
+  const [stage, setStage] = useState<Stage>(() =>
+    serverNow >= locksAt ? "waiting" : serverNow >= gameEndsAt ? "awaiting-lock" : "playing",
+  );
+  return (
+    <span className="flex items-center gap-1.5 rounded-full border border-lime/30 bg-lime/10 px-3 py-1 text-xs font-medium text-lime">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lime" />
+      {stage === "playing" && <>Live · ends in <Countdown target={gameEndsAt} serverNow={serverNow} onDone={() => setStage("awaiting-lock")} /></>}
+      {stage === "awaiting-lock" && <>Final in <Countdown target={locksAt} serverNow={serverNow} onDone={() => { setStage("waiting"); onLocked(); }} /></>}
+      {stage === "waiting" && <span>Waiting for final counts…</span>}
+    </span>
+  );
+}
+
+function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, now, label, live, gameEndsAt, locksAt, onLocked }: { day: Day; sync: Sync; avatars: Avatars; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean; gameEndsAt?: number; locksAt?: number; onLocked?: () => void }) {
   const fetcher = useFetcher<typeof action>();
   const max = Math.max(threshold * 1.5, ...day.rows.map((r) => r.steps ?? 0));
   const losers = new Set(day.preview.loserIds);
@@ -51,12 +74,10 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
         </div>
         {day.finalized ? (
           <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">{live ? "Final · skips till midnight" : "Final"}</span>
-        ) : live ? (
-          <span className="flex items-center gap-1.5 rounded-full border border-lime/30 bg-lime/10 px-3 py-1 text-xs font-medium text-lime">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lime" /> Live · {locksAt ? <>locks in <Countdown target={locksAt} serverNow={now} onDone={onLocked} /></> : "projected"}
-          </span>
+        ) : live && gameEndsAt && locksAt ? (
+          <LiveBadge gameEndsAt={gameEndsAt} locksAt={locksAt} serverNow={now} onLocked={onLocked!} />
         ) : (
-          <span className="rounded-full border border-amber/30 bg-amber/10 px-3 py-1 text-xs font-medium text-amber">Locks at 9:05 PM</span>
+          <span className="rounded-full border border-amber/30 bg-amber/10 px-3 py-1 text-xs font-medium text-amber">Locks at {LOCK_TIME_LABEL}</span>
         )}
       </div>
 
@@ -148,7 +169,7 @@ export default function Today() {
     return () => clearInterval(t);
   }, [rv]);
   const meTotal = d.totals.find((t) => t.userId === d.me);
-  // At 9:05 PM the next cron run locks the day; give it a moment, then load the locked board.
+  // The 9:15 lock runs on cron; give it a moment to finish, then load the locked board.
   const reloadAfterLock = useCallback(() => { setTimeout(() => rv.revalidate(), 90_000); }, [rv]);
 
   return (
@@ -171,7 +192,7 @@ export default function Today() {
       {!d.yesterday.finalized && d.yesterday.rows.length > 0 && (
         <Board day={d.yesterday} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedYesterday} now={d.now} label="Yesterday" live={false} />
       )}
-      <Board day={d.today} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live locksAt={d.locksAt} onLocked={reloadAfterLock} />
+      <Board day={d.today} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live gameEndsAt={d.gameEndsAt} locksAt={d.locksAt} onLocked={reloadAfterLock} />
     </div>
   );
 }

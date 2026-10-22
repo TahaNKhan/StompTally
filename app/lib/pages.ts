@@ -10,7 +10,7 @@
 import type { Db, Stmt } from "./db";
 import { sha256 } from "./crypto";
 import { AppError, type Group, type User } from "./service";
-import { addDays, addMonths, isDate, localDate, lockInstant, monthOf } from "./dates";
+import { addDays, addMonths, gameEndInstant, isDate, localDate, lockInstant, monthOf } from "./dates";
 import { buildDay, buildMonth, inMonth, type ClaimRow, type EntryRow, type MemberRow, type PenaltyRow, type ResultRow, type SettlementRow } from "./views";
 
 export type Ctx = { user: User; group: Group; role: "admin" | "member"; joinedDate: string; avatarVersion: number | null };
@@ -154,6 +154,7 @@ export async function loadToday(db: Db, sid: string | null | undefined, now = Da
       pot: mv.potCents,
       sync: Object.fromEntries(syncRows.map((r) => [r.user_id, { syncedAt: r.last_synced_at, failures: r.consecutive_failures }])),
       avatars: avatarVersions(members),
+      gameEndsAt: gameEndInstant(today, group.timezone),
       locksAt: lockInstant(today, group.timezone),
       now,
     },

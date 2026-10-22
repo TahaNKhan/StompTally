@@ -20,7 +20,7 @@ const TZ = "America/Los_Angeles";
 const SESSION_ID = "screenshot-session";
 const OUT = process.env.SHOTS_OUT || new URL("../screenshots/", import.meta.url).pathname;
 const SCHEME = process.env.SHOTS_SCHEME === "light" ? "light" : "dark";
-// SHOTS_AFTER_LOCK=1 seeds a lock for today, so Today shows the 21:05-to-midnight state (locked, skips open).
+// SHOTS_AFTER_LOCK=1 seeds a lock for today, so Today shows the 21:15-to-midnight state (locked, skips open).
 const AFTER_LOCK = process.env.SHOTS_AFTER_LOCK === "1";
 
 const people = [
@@ -76,7 +76,7 @@ function buildSeed(now) {
     insert("day_results", [GROUP, date, min, JSON.stringify(losers.map((l) => l.id)), losers.length ? "penalty" : "no_loser", now]);
     for (const l of losers) { insert("penalties", [GROUP, l.id, date, 500]); penaltyTotals[date.slice(0, 7)] = (penaltyTotals[date.slice(0, 7)] ?? 0) + 1; }
   }
-  // Days lock at 21:05, so yesterday is always final. With SHOTS_AFTER_LOCK, today is locked too.
+  // Days lock at 21:15, so yesterday is always final. With SHOTS_AFTER_LOCK, today is locked too.
   const todaySteps = [8120, 6340, 7210, 9040, 3980];
   people.forEach((p, i) => insert("step_entries", [p.id, today, todaySteps[i] + (i === 1 ? 0.5 : 0), "stompers", now - 20 * 60_000, todaySteps[i] - 300, todaySteps[i] + (i === 1 ? 0.5 : 0), `fake-game-${today}`, now - 20 * 60_000]));
   if (AFTER_LOCK) {

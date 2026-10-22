@@ -22,9 +22,11 @@
 			"migrations_dir": "migrations"
 		}
 	],
-	// Every 30 minutes, at :05 and :35. Each run syncs counts first, then finalizes days whose
-	// 21:05 lock has passed. 21:05 Pacific is 04:05 UTC (PDT) or 05:05 UTC (PST); both are :05 runs.
-	"triggers": { "crons": ["5,35 * * * *"] },
+	// Every 30 minutes, at :15 and :45. Each run syncs counts first, then finalizes days whose
+	// 21:15 lock has passed. 21:15 Pacific is 04:15 UTC (PDT) or 05:15 UTC (PST) -- both land on a
+	// :15 run, so the day locks at 21:15 rather than waiting for the next half hour. The game window
+	// shuts at 21:00, so that run is also the one that carries the day's final counts.
+	"triggers": { "crons": ["15,45 * * * *"] },
 	"ratelimits": [
 		{ "name": "RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
 	],

@@ -273,7 +273,7 @@ async function isFinalized(db: Db, groupId: string, date: string) {
 
 /**
  * Record steps for a day (the Stompers number, after power-ups).
- * Self-reports: today until it finalizes at 9:05 PM (or yesterday, if its lock is late). Never a finalized day.
+ * Self-reports: today until it finalizes at 9:15 PM (or yesterday, if its lock is late). Never a finalized day.
  * Admin edits can touch any past day; editing a finalized day re-finalizes it.
  */
 export async function recordSteps(
@@ -352,7 +352,7 @@ export async function claimSkip(db: Db, user: User, date: string, now = Date.now
   await refinalizeIfLocked(db, group, date, now);
 }
 
-/** A skip changed after the 9:05 PM lock: recompute who pays from the frozen steps. */
+/** A skip changed after the 9:15 PM lock: recompute who pays from the frozen steps. */
 async function refinalizeIfLocked(db: Db, group: Group, date: string, now: number) {
   if (await isFinalized(db, group.id, date)) await finalizeDay(db, group, date, now, { force: true });
 }

@@ -49,11 +49,27 @@ export function isDate(s: unknown): s is string {
 }
 
 /**
- * Day D locks at 21:05 local time on D itself: steps freeze and the result is computed.
- * Skips for D stay open until local midnight (see canChangeSkip), which recomputes the result.
- * Returns the latest date that is allowed to be finalized right now.
+ * The Stompers game window closes at 21:00 local; the day locks 15 minutes later. The gap is
+ * deliberate: the last walk of the day can land a little after 21:00, and the lock needs those
+ * final counts before it freezes anything.
  */
-export const FINALIZE_MINUTE_OF_DAY = 21 * 60 + 5;
+export const GAME_END_MINUTE_OF_DAY = 21 * 60;
+export const FINALIZE_MINUTE_OF_DAY = 21 * 60 + 15;
+export const GAME_END_LABEL = formatMinuteOfDay(GAME_END_MINUTE_OF_DAY);
+export const LOCK_TIME_LABEL = formatMinuteOfDay(FINALIZE_MINUTE_OF_DAY);
+
+/** "9:15 PM" — a wall-clock time as copy, for every place that names the lock. */
+export function formatMinuteOfDay(minuteOfDay: number): string {
+  const hour24 = Math.floor(minuteOfDay / 60);
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour12}:${String(minuteOfDay % 60).padStart(2, "0")} ${hour24 < 12 ? "AM" : "PM"}`;
+}
+
+/**
+ * Day D locks at FINALIZE_MINUTE_OF_DAY local time on D itself: steps freeze and the result is
+ * computed. Skips for D stay open until local midnight (see canChangeSkip), which recomputes the
+ * result. Returns the latest date that is allowed to be finalized right now.
+ */
 export function lastFinalizableDate(now: Date, timeZone: string): string {
   const { date, hour, minute } = localParts(now, timeZone);
   return addDays(date, hour * 60 + minute >= FINALIZE_MINUTE_OF_DAY ? 0 : -1);
@@ -70,7 +86,7 @@ function zoneOffsetMs(instant: number, timeZone: string): number {
   return asUtc - (instant - (instant % 1000));
 }
 
-/** The instant a local wall-clock time happens in `timeZone`, e.g. 21:05 on 2026-10-21 in Los Angeles. */
+/** The instant a local wall-clock time happens in `timeZone`, e.g. 21:15 on 2026-10-21 in Los Angeles. */
 export function zonedInstant(date: string, minuteOfDay: number, timeZone: string): number {
   const [y, m, d] = date.split("-").map(Number);
   const wall = Date.UTC(y, m - 1, d, Math.floor(minuteOfDay / 60), minuteOfDay % 60);
@@ -78,6 +94,9 @@ export function zonedInstant(date: string, minuteOfDay: number, timeZone: string
   const guess = wall - zoneOffsetMs(wall, timeZone);
   return wall - zoneOffsetMs(guess, timeZone);
 }
+
+/** When the game window closes on `date`, local time: what the Today badge counts down to. */
+export const gameEndInstant = (date: string, timeZone: string) => zonedInstant(date, GAME_END_MINUTE_OF_DAY, timeZone);
 
 /** When `date` locks: FINALIZE_MINUTE_OF_DAY on that day, local time. */
 export const lockInstant = (date: string, timeZone: string) => zonedInstant(date, FINALIZE_MINUTE_OF_DAY, timeZone);

@@ -138,11 +138,13 @@ describe("steps + finalize", () => {
     expect(mv.potCents).toBe(1500);
   });
 
-  it("doesn't finalize before 21:05 that day, and is idempotent", async () => {
+  it("doesn't finalize before 21:15 that day, and is idempotent", async () => {
     const { db } = await setup();
-    // Oct 1 21:04 PDT = 04:04 UTC Oct 2
-    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T04:04:00Z"))).toEqual([]);
-    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T04:05:00Z"))).toHaveLength(1);
+    // Oct 1 21:00 PDT = 04:00 UTC Oct 2: the game has just ended, the day has not locked
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T04:00:00Z"))).toEqual([]);
+    // Oct 1 21:14 PDT = 04:14 UTC Oct 2
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T04:14:00Z"))).toEqual([]);
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T04:15:00Z"))).toHaveLength(1);
     expect(await svc.finalizeDue(db, Date.parse("2026-10-02T06:00:00Z"))).toEqual([]);
   });
 
@@ -219,11 +221,11 @@ describe("skips", () => {
     await expect(svc.claimSkip(db, taha, "2026-10-01", Date.parse("2026-10-02T16:00:00Z"))).rejects.toThrow(/close at midnight/);
   });
 
-  it("after the 21:05 lock, a skip until midnight still saves the loser", async () => {
+  it("after the 21:15 lock, a skip until midnight still saves the loser", async () => {
     const { db, taha, group, friends } = await setup();
     const loser = friends[0];
     for (const u of [taha, ...friends]) await svc.recordSteps(db, { actor: u, userId: u.id, date: "2026-10-01", steps: u === loser ? 2000 : 12000, source: "manual" }, T0);
-    const locked = Date.parse("2026-10-02T04:05:00Z"); // Oct 1 21:05 PDT
+    const locked = Date.parse("2026-10-02T04:15:00Z"); // Oct 1 21:15 PDT
     await svc.finalizeDue(db, locked);
     expect((await svc.monthView(db, group, "2026-10")).potCents).toBe(500);
     // Steps are frozen after the lock
@@ -247,7 +249,7 @@ describe("skips", () => {
   it("a late skip by someone who isn't last is released at once and not counted", async () => {
     const { db, taha, group, friends } = await setup();
     for (const u of [taha, ...friends]) await svc.recordSteps(db, { actor: u, userId: u.id, date: "2026-10-01", steps: u === friends[0] ? 2000 : 12000, source: "manual" }, T0);
-    await svc.finalizeDue(db, Date.parse("2026-10-02T04:05:00Z"));
+    await svc.finalizeDue(db, Date.parse("2026-10-02T04:15:00Z"));
     await svc.claimSkip(db, taha, "2026-10-01", Date.parse("2026-10-02T06:00:00Z"));
     expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM skip_claims WHERE user_id = ?", taha.id))?.n).toBe(0);
     expect((await svc.monthView(db, group, "2026-10")).potCents).toBe(500);
