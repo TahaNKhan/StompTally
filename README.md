@@ -1,6 +1,6 @@
 # Stomp Tally
 
-Daily step stakes for a friend group. Link a [Stompers](https://stompers.com) username or user ID on Me. Every two hours, the app pulls walking steps and item-adjusted game steps. The higher count scores the day, including fractional game steps. Each day, whoever has the fewest steps **and** is under 10,000 owes $5 toward the monthly group meal.
+Daily step stakes for a friend group. Link a [Stompers](https://stompers.com) username or user ID on Me. Every 30 minutes, the app pulls walking steps and item-adjusted game steps. The higher count scores the day, including fractional game steps. Each day, whoever has the fewest steps **and** is under 10,000 owes $5 toward the monthly group meal.
 
 Invite-only. Email magic-link login, no passwords. Runs on Cloudflare Workers + D1 (free tier is plenty for a handful of people).
 
@@ -29,13 +29,13 @@ All data below is invented. Regenerate with `node scripts/screenshots.mjs`.
 - Linked accounts keep their last successful counts when the API fails. Missing or stale API data delays locking instead of generating a zero-step penalty. An explicit manual fallback or admin correction can still lock.
 - Both imported counts appear on Today and Month. An admin correction overrides the imported score; later pulls still refresh the two API counts.
 - Manual step entry lives on Me. Each save creates a separate immutable manual entry and an audit event with the previous score and API snapshot. The manual score overrides that day's tally while scheduled pulls continue updating both API counts. Members see their own change history on Me; admins see their group's history on Group.
-- Each person logs their own steps for today, or yesterday until it locks. Days lock at **12:05 AM the next day** (group timezone), right after the Stompers game ends, then only an admin can correct them.
-- **Skips:** 3 per person per calendar month, claimed manually before the day locks. A skip is only used up if it actually saves you from paying. Otherwise it's released. A used skip never moves the penalty to someone else.
+- Each person logs their own steps for today, or yesterday until it locks. Days lock at **9:05 PM** (group timezone): steps freeze and the result is set, then only an admin can correct them.
+- **Skips:** 3 per person per calendar month, claimed manually by **midnight**, even after the 9:05 PM lock; a late skip recomputes that day. A skip is only used up if it actually saves you from paying. Otherwise it's released. A used skip never moves the penalty to someone else.
 - An admin can correct any past day. Correcting a locked day recomputes it.
 
 ## Stack
 
-React Router v8 (SSR) · Cloudflare Workers · D1 (SQLite) · Cron Trigger (two-hour sync and finalize) · Tailwind v4 · Resend (email) · Vitest
+React Router v8 (SSR) · Cloudflare Workers · D1 (SQLite) · Cron Trigger (30-minute sync and finalize) · Tailwind v4 · Resend (email) · Vitest
 
 ## Layout
 
@@ -50,7 +50,7 @@ app/lib/dates.ts        timezone / lock-time helpers
 app/lib/avatars.ts      one photo per person in D1 (user_id is the primary key); app/routes/avatar.tsx serves it to the group
 app/lib/mail.server.ts  Resend sender (logs to console when no API key)
 app/routes/             pages: today, month, history (ledger), me, group (admin), login, invite, setup
-workers/app.ts          Worker entry: security headers + two-hour sync before finalize
+workers/app.ts          Worker entry: security headers + 30-minute sync before finalize
 migrations/             D1 schema
 scripts/smoke.sh        end-to-end HTTP smoke test against `npm run dev`
 scripts/screenshots.mjs seeds a throwaway local DB with fake data and renders screenshots/
@@ -137,10 +137,10 @@ Run after `scripts/smoke.sh` against its local fixture. Uses Chromium at `/usr/b
 
 ## Stompers reads
 
-Cron runs at minute 5 of every even UTC hour (`5 */2 * * *`) plus 07:05 UTC (`5 7 * * *`), which is 00:05 PDT. 00:05 PST is 08:05 UTC, already an even hour. A group in another time zone locks at its first run after its own 00:05. It resolves
+Cron runs at minutes 5 and 35 of every hour (`5,35 * * * *`). 21:05 Pacific is 04:05 UTC (PDT) or 05:05 UTC (PST), both on the schedule. A group in another time zone locks at its first run after its own 00:05. It resolves
 `USER_UID_friends`, reads `current_game_uid`, and fetches the current game.
 It also reads recent games and caches known game IDs so yesterday can be
-refreshed before the 12:05 AM lock, even when the history list omits it.
+refreshed before the 9:05 PM lock, even when the history list omits it.
 Only today/yesterday, after joining the group, are imported. Finalized days
 remain unchanged. API games must span one full local day in the group timezone;
 both counts must be valid numbers. A linked API entry must have a successful

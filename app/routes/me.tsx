@@ -79,7 +79,7 @@ export default function Me() {
 
       <section className="card p-5 rise">
         <h2 className="font-display text-lg font-bold">Stompers</h2>
-        <p className="mt-1 text-sm text-muted">Steps pull every two hours. The higher of walking steps and game steps counts toward the tally.</p>
+        <p className="mt-1 text-sm text-muted">Steps pull every 30 minutes. The higher of walking steps and game steps counts toward the tally.</p>
         {stompers && <div className="mt-3 text-sm">
           <p>Linked to <b>{stompers.username ? `@${stompers.username}` : stompers.stompers_uid}</b></p>
           <p className="mt-1 break-all text-xs text-muted">User ID: {stompers.stompers_uid}</p>
@@ -109,11 +109,11 @@ export default function Me() {
       <section className="card p-5 rise">
         <h2 className="font-display text-lg font-bold">How it works</h2>
         <ul className="mt-3 space-y-2.5 text-sm text-soft">
-          <li>👟 Link <b>Stompers</b> to pull both counts every two hours. The higher count wins. Log manual changes here; each save is kept in the change log.</li>
+          <li>👟 Link <b>Stompers</b> to pull both counts every 30 minutes. The higher count wins. Log manual changes here; each save is kept in the change log.</li>
           <li>👟 Lowest under {rules.threshold.toLocaleString("en-US")} each day owes <b className="text-lime">${rules.penalty / 100}</b>. Ties: everyone tied pays.</li>
           <li>🫥 Didn't log? That counts as 0.</li>
-          <li>🛡️ {rules.skips} skips a month. Claim one before the day locks. It's only used up if it saves you.</li>
-          <li>🔒 Each day locks at 12:05 AM the next day. After that only the admin can fix it.</li>
+          <li>🛡️ {rules.skips} skips a month. Claim one by midnight, even after the 9:05 PM lock. It's only used up if it saves you.</li>
+          <li>🔒 Each day locks at 9:05 PM. After that only the admin can change steps.</li>
         </ul>
       </section>
 

@@ -49,13 +49,19 @@ export function isDate(s: unknown): s is string {
 }
 
 /**
- * Day D is finalized FINALIZE_MINUTE_OF_DAY minutes after local midnight on D+1, just after the
- * Stompers game for D ends. Returns the latest date that is allowed to be finalized right now.
+ * Day D locks at 21:05 local time on D itself: steps freeze and the result is computed.
+ * Skips for D stay open until local midnight (see canChangeSkip), which recomputes the result.
+ * Returns the latest date that is allowed to be finalized right now.
  */
-export const FINALIZE_MINUTE_OF_DAY = 5;
+export const FINALIZE_MINUTE_OF_DAY = 21 * 60 + 5;
 export function lastFinalizableDate(now: Date, timeZone: string): string {
   const { date, hour, minute } = localParts(now, timeZone);
-  return addDays(date, hour * 60 + minute >= FINALIZE_MINUTE_OF_DAY ? -1 : -2);
+  return addDays(date, hour * 60 + minute >= FINALIZE_MINUTE_OF_DAY ? 0 : -1);
+}
+
+/** A skip for `date` can be claimed or undone only while it is still that day, locally. */
+export function canChangeSkip(date: string, now: Date, timeZone: string): boolean {
+  return localDate(now, timeZone) === date;
 }
 
 export function formatDay(date: string): string {

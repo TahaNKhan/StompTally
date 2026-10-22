@@ -146,7 +146,7 @@ export async function syncStompers(db: Db, now = Date.now(), read = readStompers
   return results;
 }
 
-/** Alert admins after this many failed pulls in a row (6 hours at the 2-hour schedule). */
+/** Alert admins after this many failed pulls in a row (90 minutes at the 30-minute schedule). */
 export const FAILURE_ALERT_THRESHOLD = 3;
 
 export type FailureAlert = {

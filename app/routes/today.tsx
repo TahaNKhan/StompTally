@@ -49,13 +49,13 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
           <div className="font-display text-lg font-bold">{formatDay(day.date)}</div>
         </div>
         {day.finalized ? (
-          <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">Final</span>
+          <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">{live ? "Final · skips till midnight" : "Final"}</span>
         ) : live ? (
           <span className="flex items-center gap-1.5 rounded-full border border-lime/30 bg-lime/10 px-3 py-1 text-xs font-medium text-lime">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lime" /> Live · projected
           </span>
         ) : (
-          <span className="rounded-full border border-amber/30 bg-amber/10 px-3 py-1 text-xs font-medium text-amber">Final at 12:05 AM</span>
+          <span className="rounded-full border border-amber/30 bg-amber/10 px-3 py-1 text-xs font-medium text-amber">Locks at 9:05 PM</span>
         )}
       </div>
 
@@ -102,7 +102,7 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
         })}
       </ul>
 
-      {!day.finalized && mine && (
+      {live && mine && (
         <div className="flex flex-wrap items-center gap-2 border-t border-line bg-sunken px-5 py-3">
           {mine.skipClaimed ? (
             <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2">

@@ -138,11 +138,12 @@ describe("steps + finalize", () => {
     expect(mv.potCents).toBe(1500);
   });
 
-  it("doesn't finalize before 00:05 next day, and is idempotent", async () => {
+  it("doesn't finalize before 21:05 that day, and is idempotent", async () => {
     const { db } = await setup();
-    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T07:04:00Z"))).toEqual([]);
-    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T07:05:00Z"))).toHaveLength(1);
-    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T20:00:00Z"))).toEqual([]);
+    // Oct 1 21:04 PDT = 04:04 UTC Oct 2
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T04:04:00Z"))).toEqual([]);
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T04:05:00Z"))).toHaveLength(1);
+    expect(await svc.finalizeDue(db, Date.parse("2026-10-02T06:00:00Z"))).toEqual([]);
   });
 
   it("self-report window: today or yesterday until 00:05, never future", async () => {
@@ -206,19 +207,50 @@ describe("skips", () => {
 
   it("max 3 per month, resets next month", async () => {
     const { db, taha } = await setup();
-    const now = Date.parse("2026-10-05T16:00:00Z");
-    for (const d of ["2026-10-03", "2026-10-04", "2026-10-05"]) await svc.claimSkip(db, taha, d, now);
-    await expect(svc.claimSkip(db, taha, "2026-10-02", now)).rejects.toThrow(/all 3/);
-    await svc.cancelSkip(db, taha, "2026-10-05", now);
-    await svc.claimSkip(db, taha, "2026-10-02", now);
-    await svc.claimSkip(db, taha, "2026-11-01", Date.parse("2026-11-01T16:00:00Z"));
+    const day = (d: string) => Date.parse(`${d}T16:00:00Z`); // 09:00 PDT that day
+    for (const d of ["2026-10-03", "2026-10-04", "2026-10-05"]) await svc.claimSkip(db, taha, d, day(d));
+    await expect(svc.claimSkip(db, taha, "2026-10-06", day("2026-10-06"))).rejects.toThrow(/all 3/);
+    await svc.claimSkip(db, taha, "2026-11-01", day("2026-11-01"));
   });
 
-  it("can't skip future or finalized days", async () => {
+  it("can only skip today: not a future or past day", async () => {
     const { db, taha } = await setup();
-    await expect(svc.claimSkip(db, taha, "2026-10-02", T0)).rejects.toThrow(/today/);
-    await svc.finalizeDue(db, Date.parse("2026-10-02T19:00:00Z"));
-    await expect(svc.claimSkip(db, taha, "2026-10-01", Date.parse("2026-10-02T19:00:00Z"))).rejects.toThrow(/final/);
+    await expect(svc.claimSkip(db, taha, "2026-10-02", T0)).rejects.toThrow(/only skip today/);
+    await expect(svc.claimSkip(db, taha, "2026-10-01", Date.parse("2026-10-02T16:00:00Z"))).rejects.toThrow(/close at midnight/);
+  });
+
+  it("after the 21:05 lock, a skip until midnight still saves the loser", async () => {
+    const { db, taha, group, friends } = await setup();
+    const loser = friends[0];
+    for (const u of [taha, ...friends]) await svc.recordSteps(db, { actor: u, userId: u.id, date: "2026-10-01", steps: u === loser ? 2000 : 12000, source: "manual" }, T0);
+    const locked = Date.parse("2026-10-02T04:05:00Z"); // Oct 1 21:05 PDT
+    await svc.finalizeDue(db, locked);
+    expect((await svc.monthView(db, group, "2026-10")).potCents).toBe(500);
+    // Steps are frozen after the lock
+    await expect(svc.recordSteps(db, { actor: loser, userId: loser.id, date: "2026-10-01", steps: 20000, source: "manual" }, locked + 60_000)).rejects.toThrow(/final/);
+    // 23:30 PDT: skip still allowed, and the day is recomputed
+    const lateEvening = Date.parse("2026-10-02T06:30:00Z");
+    await svc.claimSkip(db, loser, "2026-10-01", lateEvening);
+    let mv = await svc.monthView(db, group, "2026-10");
+    expect(mv.potCents).toBe(0);
+    expect(mv.days[0].outcome).toBe("skipped");
+    // Undoing it before midnight brings the penalty back, and frees the skip
+    await svc.cancelSkip(db, loser, "2026-10-01", lateEvening + 60_000);
+    mv = await svc.monthView(db, group, "2026-10");
+    expect(mv.potCents).toBe(500);
+    expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM skip_claims"))?.n).toBe(0);
+    // Midnight: skips are closed for Oct 1
+    await expect(svc.claimSkip(db, loser, "2026-10-01", Date.parse("2026-10-02T07:00:00Z"))).rejects.toThrow(/close at midnight/);
+    await expect(svc.cancelSkip(db, loser, "2026-10-01", Date.parse("2026-10-02T07:00:00Z"))).rejects.toThrow(/close at midnight/);
+  });
+
+  it("a late skip by someone who isn't last is released at once and not counted", async () => {
+    const { db, taha, group, friends } = await setup();
+    for (const u of [taha, ...friends]) await svc.recordSteps(db, { actor: u, userId: u.id, date: "2026-10-01", steps: u === friends[0] ? 2000 : 12000, source: "manual" }, T0);
+    await svc.finalizeDue(db, Date.parse("2026-10-02T04:05:00Z"));
+    await svc.claimSkip(db, taha, "2026-10-01", Date.parse("2026-10-02T06:00:00Z"));
+    expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM skip_claims WHERE user_id = ?", taha.id))?.n).toBe(0);
+    expect((await svc.monthView(db, group, "2026-10")).potCents).toBe(500);
   });
 
   it("tie: skipper saved, other pays", async () => {

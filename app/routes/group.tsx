@@ -129,7 +129,7 @@ export default function GroupPage() {
 
       <section className="card p-5 rise">
         <h2 className="font-display text-lg font-bold">Poll Stompers</h2>
-        <p className="mt-1 text-sm text-muted">Pull today's and yesterday's steps now instead of waiting for the 2-hour schedule. Manual and admin entries stay as they are.</p>
+        <p className="mt-1 text-sm text-muted">Pull today's and yesterday's steps now instead of waiting for the 30-minute schedule. Manual and admin entries stay as they are.</p>
         <poll.Form method="post" className="mt-4">
           <input type="hidden" name="intent" value="poll" />
           <PendingButton className="btn-primary w-full" busy={poll.state !== "idle"} pendingLabel="Polling…">Poll now</PendingButton>
@@ -176,7 +176,7 @@ export default function GroupPage() {
             <ErrorNote error={settings.data && "error" in settings.data ? settings.data.error : null} />
           </div>
         </settings.Form>
-        <p className="mt-4 text-xs text-muted">Lowest steps under the goal pays. Ties: everyone tied pays. No sync = 0 steps. Days finalize at 12:05 AM the next day.</p>
+        <p className="mt-4 text-xs text-muted">Lowest steps under the goal pays. Ties: everyone tied pays. No sync = 0 steps. Days lock at 9:05 PM. Skips stay open until midnight.</p>
       </section>
     </div>
   );

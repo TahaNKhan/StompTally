@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canClaimSkip, computeDay } from "./rules";
-import { addDays, lastFinalizableDate, localDate, daysInMonth } from "./dates";
+import { addDays, canChangeSkip, lastFinalizableDate, localDate, daysInMonth } from "./dates";
 
 const rules = { thresholdSteps: 10_000, penaltyCents: 500 };
 const five = ["a", "b", "c", "d", "e"];
@@ -106,19 +106,26 @@ describe("dates", () => {
     // 2026-10-17 05:00 UTC = Oct 16 22:00 PDT
     expect(localDate(new Date("2026-10-17T05:00:00Z"), tz)).toBe("2026-10-16");
   });
-  it("finalize cutoff is 00:05 the next day", () => {
-    // Oct 17 00:04 PDT -> Oct 16 not yet final -> last finalizable = Oct 15
-    expect(lastFinalizableDate(new Date("2026-10-17T07:04:00Z"), tz)).toBe("2026-10-15");
-    // Oct 17 00:05 PDT -> Oct 16 final
-    expect(lastFinalizableDate(new Date("2026-10-17T07:05:00Z"), tz)).toBe("2026-10-16");
-    // Still Oct 16 final at noon, and late at night
-    expect(lastFinalizableDate(new Date("2026-10-17T19:00:00Z"), tz)).toBe("2026-10-16");
-    expect(lastFinalizableDate(new Date("2026-10-18T06:59:00Z"), tz)).toBe("2026-10-16");
+  it("finalize cutoff is 21:05 the same day", () => {
+    // Oct 17 21:04 PDT (04:04 UTC Oct 18) -> Oct 17 not yet final
+    expect(lastFinalizableDate(new Date("2026-10-18T04:04:00Z"), tz)).toBe("2026-10-16");
+    // Oct 17 21:05 PDT -> Oct 17 final
+    expect(lastFinalizableDate(new Date("2026-10-18T04:05:00Z"), tz)).toBe("2026-10-17");
+    // Still Oct 17 just before midnight, and Oct 17 the next morning
+    expect(lastFinalizableDate(new Date("2026-10-18T06:59:00Z"), tz)).toBe("2026-10-17");
+    expect(lastFinalizableDate(new Date("2026-10-18T16:00:00Z"), tz)).toBe("2026-10-17");
   });
   it("finalize cutoff follows daylight saving", () => {
-    // Nov 2 00:05 PST is 08:05 UTC, an hour later than in PDT
-    expect(lastFinalizableDate(new Date("2026-11-02T08:04:00Z"), tz)).toBe("2026-10-31");
-    expect(lastFinalizableDate(new Date("2026-11-02T08:05:00Z"), tz)).toBe("2026-11-01");
+    // Nov 2 21:05 PST is 05:05 UTC Nov 3, an hour later than in PDT
+    expect(lastFinalizableDate(new Date("2026-11-03T05:04:00Z"), tz)).toBe("2026-11-01");
+    expect(lastFinalizableDate(new Date("2026-11-03T05:05:00Z"), tz)).toBe("2026-11-02");
+  });
+  it("skips stay open until local midnight, and only for that day", () => {
+    // Oct 17 23:59 PDT
+    expect(canChangeSkip("2026-10-17", new Date("2026-10-18T06:59:00Z"), tz)).toBe(true);
+    // Oct 18 00:00 PDT
+    expect(canChangeSkip("2026-10-17", new Date("2026-10-18T07:00:00Z"), tz)).toBe(false);
+    expect(canChangeSkip("2026-10-18", new Date("2026-10-18T06:59:00Z"), tz)).toBe(false);
   });
   it("addDays crosses months", () => {
     expect(addDays("2026-10-31", 1)).toBe("2026-11-01");
