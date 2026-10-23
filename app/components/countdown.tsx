@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { countdownLabel, msUntilLabelChanges } from "../lib/countdown";
 
 /**
- * Live "N hrs / mins / secs" until `target`. The server renders the first label; after that the
- * browser sleeps until the text would change, so it redraws once an hour, then once a minute,
- * and only ticks every second in the final minute. `onDone` fires once when the target passes.
+ * Live "3 hrs 20 mins", then "59 mins", then "59 secs" until `target`. The server renders the first
+ * label; after that the browser sleeps until the text would change, so it redraws once a minute
+ * until the last one, and only ticks every second inside it. `onDone` fires once when it passes.
  *
  * `onDone` is held in a ref, not in the effect's dependencies: callers pass inline arrows, and a
  * dependency on one would restart the timer on every render -- and since a restart re-reads the

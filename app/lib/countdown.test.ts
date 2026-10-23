@@ -7,14 +7,17 @@ const T = 1_000_000_000_000;
 
 describe("countdownLabel", () => {
   it.each([
-    [3 * H + 20 * M, "3 hrs"],
-    [2 * H - 1, "1 hr"],
+    [3 * H + 20 * M, "3 hrs 20 mins"],
+    [3 * H + 1 * M, "3 hrs 1 min"],
+    [90 * M, "1 hr 30 mins"],
+    [2 * H - 1, "1 hr 59 mins"],
     [1 * H, "1 hr"],
     [1 * H - 1, "59 mins"],
     [2 * M, "2 mins"],
     [61 * S, "1 min"],
     [60 * S, "1 min"],
     [59 * S, "59 secs"],
+    [2 * S, "2 secs"],
     [1 * S, "1 sec"],
     [1, "1 sec"],
   ])("%i ms left reads %s", (left, label) => {
@@ -44,7 +47,9 @@ describe("msUntilLabelChanges", () => {
       label = next;
       seen.push(label);
     }
-    expect(seen.slice(0, 2)).toEqual(["2 hrs", "1 hr"]);
+    expect(seen.slice(0, 3)).toEqual(["2 hrs 3 mins", "2 hrs 2 mins", "2 hrs 1 min"]);
+    expect(seen).toContain("2 hrs");
+    expect(seen).toContain("1 hr 59 mins");
     expect(seen).toContain("1 hr");
     expect(seen).toContain("59 mins");
     expect(seen).toContain("1 min");
@@ -53,12 +58,13 @@ describe("msUntilLabelChanges", () => {
     expect(seen.at(-1)).toBeNull();
   });
 
-  it("redraws a handful of times per hour, not every second, until the last minute", () => {
+  it("redraws once a minute until the last minute, not every second", () => {
     const target = T + 5 * H;
     let now = T, wakes = 0;
     while (target - now > 60 * S) { now += msUntilLabelChanges(target, now); wakes++; }
-    // 5 hour labels down to 1 hr, then 59 minute labels to "1 min"
-    expect(wakes).toBeLessThanOrEqual(5 + 59);
+    // The label changes on each minute boundary: 300 minutes down to 1, never once per second.
+    expect(wakes).toBeLessThanOrEqual(300);
+    expect(wakes).toBeGreaterThan(200);
   });
 
   it("is Infinity after the target", () => {
