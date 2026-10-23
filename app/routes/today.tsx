@@ -170,10 +170,6 @@ export default function Today() {
   const d = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const rv = useRevalidator();
-  useEffect(() => {
-    const t = setInterval(() => document.visibilityState === "visible" && rv.revalidate(), 60_000);
-    return () => clearInterval(t);
-  }, [rv]);
   const meTotal = d.totals.find((t) => t.userId === d.me);
   // The 9:15 lock runs on cron; give it a moment to finish, then load the locked board.
   const reloadAfterLock = useCallback(() => { setTimeout(() => rv.revalidate(), 90_000); }, [rv]);

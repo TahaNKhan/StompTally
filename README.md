@@ -52,12 +52,15 @@ app/lib/mail.server.ts  Resend sender (logs to console when no API key)
 app/lib/offline.ts      client-only offline helpers (register the worker, connection state, cache age)
 public/sw.js            the service worker: three caches, network-first for anything private
 app/components/offline-bar.tsx  the "Offline" strip and the useOnline hook
+app/lib/refresh.ts      staleness rules (pure, storage-injected), the 30-minute interval
+app/components/refresh.tsx  useAutoRefresh (timer + wake listeners) and the freshness line
 app/routes/             pages: today, month, history (ledger), me, group (admin), login, invite, setup
 workers/app.ts          Worker entry: security headers + 30-minute sync before finalize
 migrations/             D1 schema
 scripts/smoke.sh        end-to-end HTTP smoke test against `npm run dev`
 scripts/screenshots.mjs seeds a throwaway local DB with fake data and renders screenshots/
 scripts/offline-e2e.mjs builds, serves with wrangler, and cuts the network at the browser
+scripts/refresh-e2e.mjs freezes the clock to prove the timer and the wake-up refetch
 ```
 
 ## Develop
@@ -98,6 +101,7 @@ Offline mode only exists in a real build, so that check builds and serves the wo
 
 ```bash
 node scripts/offline-e2e.mjs   # requires Chromium; needs no dev server
+node scripts/refresh-e2e.mjs   # same; freezes the clock rather than waiting 30 minutes
 ```
 
 ## Deploy
@@ -184,7 +188,25 @@ worker is the only thing that reads this cache back.
 Writes are refused, not queued. Saving steps or claiming a skip while offline is blocked in the
 form and said out loud, because a queued submit that fails later leaves you unsure whether it saved.
 
+## Staying fresh
+
+The page refetches when its data is 30 minutes old -- the same cadence the server's cron uses, so
+refreshing sooner could not show anything newer. The interval alone is not enough: iOS freezes a
+backgrounded app's timers, so a phone left overnight comes back showing yesterday's board with no
+timer due to fire.
+
+Being reopened is the signal that can be trusted, so a `visibilitychange`, a `pageshow` (a
+back/forward cache restore, which fires no `visibilitychange`) and regaining signal all run the same
+stale check the timer does. Refreshing while the data is still fresh does nothing, so glancing at a
+phone costs no round trips.
+
+A line above the board reads "Updated 5 min ago ↻" and turns amber once the data is stale. Tapping it
+refreshes on demand, which is the escape hatch for a device clock that is wrong. It hides offline,
+where the strip above already says the board is old. The timestamp follows the router's own
+revalidation state, so every completed fetch counts -- including one another component started.
+
 ## Not built yet
 
 - Screenshot upload as a dispute fallback.
 - Queueing an offline step entry and replaying it when the signal returns.
+- A push notification when the day locks, so a stale board is not the only way to find out.
