@@ -118,6 +118,8 @@ npm run deploy
 
 Then open `https://<your-domain>/setup`, create the admin, and invite people from the ⚙️ Group page.
 
+After that, every push to `main` deploys from GitHub Actions once typecheck, tests, and build pass (`.github/workflows/ci.yml`). The job needs a `CLOUDFLARE_API_TOKEN` repository secret with **Workers Scripts: Edit** and **D1: Read**, and a `CLOUDFLARE_ACCOUNT_ID` repository variable. Migrations are not applied in CI; run `npx wrangler d1 migrations apply stomp-tally --remote` yourself before pushing a change that adds one.
+
 - The domain in `wrangler.jsonc` (`routes` and `APP_URL`) must be on your Cloudflare account. `MAIL_FROM` must be on a domain verified in Resend (SPF/DKIM).
 - `/setup` is disabled until `SETUP_KEY` is set, and locks permanently once any user exists.
 - Schema changes: add a new `migrations/000N_*.sql`, apply with `--remote`. Never edit an applied migration.
