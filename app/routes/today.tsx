@@ -36,8 +36,8 @@ type Sync = Awaited<ReturnType<typeof loader>>["sync"];
 type Avatars = Awaited<ReturnType<typeof loader>>["avatars"];
 
 /**
- * The Today badge before the day locks. The Stompers game window shuts at 9:00 PM and the day locks
- * at 9:15, so the badge counts to the game end while play is on, then to the lock, then waits for
+ * The Today badge before the day locks. The Stompers game window shuts at midnight and the day locks
+ * at 12:05 AM, so the badge counts to the game end while play is on, then to the lock, then waits for
  * the result. "Waiting" is the honest word for that last stage: the lock run skips a day whose
  * counts are still stale (see finalizeDay), so it can sit there for more than one cron cycle.
  * The stage is seeded from the server's clock so the first paint matches hydration, and each
@@ -58,7 +58,7 @@ function LiveBadge({ gameEndsAt, locksAt, serverNow, onLocked }: { gameEndsAt: n
   );
 }
 
-function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, now, label, live, gameEndsAt, locksAt, onLocked }: { day: Day; sync: Sync; avatars: Avatars; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean; gameEndsAt?: number; locksAt?: number; onLocked?: () => void }) {
+function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, now, label, live, skippable, gameEndsAt, locksAt, onLocked }: { day: Day; sync: Sync; avatars: Avatars; me: string; threshold: number; penalty: number; skips: number; skipsUsed: Record<string, number>; now: number; label: string; live: boolean; skippable: boolean; gameEndsAt?: number; locksAt?: number; onLocked?: () => void }) {
   const fetcher = useFetcher<typeof action>();
   // Same rule as manual steps: a skip is a write, so it is refused offline instead of failing later.
   const online = useOnline();
@@ -78,7 +78,7 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
           <div className="font-display text-lg font-bold">{formatDay(day.date)}</div>
         </div>
         {day.finalized ? (
-          <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">{live ? "Final · skips till midnight" : "Final"}</span>
+          <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">Final</span>
         ) : live && gameEndsAt && locksAt ? (
           <LiveBadge gameEndsAt={gameEndsAt} locksAt={locksAt} serverNow={now} onLocked={onLocked!} />
         ) : (
@@ -129,7 +129,7 @@ function Board({ day, sync, avatars, me, threshold, penalty, skips, skipsUsed, n
         })}
       </ul>
 
-      {live && mine && (
+      {skippable && mine && (
         <div className="flex flex-wrap items-center gap-2 border-t border-line bg-sunken px-5 py-3">
           {mine.skipClaimed ? (
             <fetcher.Form method="post" className="flex flex-1 items-center justify-between gap-2" onSubmit={blockedOffline}>
@@ -171,7 +171,7 @@ export default function Today() {
   const [params] = useSearchParams();
   const rv = useRevalidator();
   const meTotal = d.totals.find((t) => t.userId === d.me);
-  // The 9:15 lock runs on cron; give it a moment to finish, then load the locked board.
+  // The 12:05 AM lock runs on cron; give it a moment to finish, then load the locked board.
   const reloadAfterLock = useCallback(() => { setTimeout(() => rv.revalidate(), 90_000); }, [rv]);
 
   return (
@@ -192,9 +192,9 @@ export default function Today() {
       </div>
 
       {!d.yesterday.finalized && d.yesterday.rows.length > 0 && (
-        <Board day={d.yesterday} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedYesterday} now={d.now} label="Yesterday" live={false} />
+        <Board day={d.yesterday} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedYesterday} now={d.now} label="Yesterday" live={false} skippable={d.skipOpenYesterday} />
       )}
-      <Board day={d.today} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live gameEndsAt={d.gameEndsAt} locksAt={d.locksAt} onLocked={reloadAfterLock} />
+      <Board day={d.today} sync={d.sync} avatars={d.avatars} me={d.me} threshold={d.group.threshold} penalty={d.group.penalty} skips={d.group.skips} skipsUsed={d.skipsUsedToday} now={d.now} label="Today" live skippable={d.skipOpenToday} gameEndsAt={d.gameEndsAt} locksAt={d.locksAt} onLocked={reloadAfterLock} />
     </div>
   );
 }

@@ -74,26 +74,32 @@ describe("msUntilLabelChanges", () => {
 
 describe("the day's two instants", () => {
   const tz = "America/Los_Angeles";
-  it("is 21:15 Pacific in summer time (PDT, UTC-7)", () => {
-    expect(new Date(lockInstant("2026-10-21", tz)).toISOString()).toBe("2026-10-22T04:15:00.000Z");
+  it("locks at 00:05 Pacific the next day in summer time (PDT, UTC-7)", () => {
+    expect(new Date(lockInstant("2026-10-21", tz)).toISOString()).toBe("2026-10-22T07:05:00.000Z");
   });
-  it("is 21:15 Pacific in winter time (PST, UTC-8)", () => {
-    expect(new Date(lockInstant("2026-11-02", tz)).toISOString()).toBe("2026-11-03T05:15:00.000Z");
+  it("locks at 00:05 Pacific the next day in winter time (PST, UTC-8)", () => {
+    expect(new Date(lockInstant("2026-11-02", tz)).toISOString()).toBe("2026-11-03T08:05:00.000Z");
   });
   it("is right on the day daylight saving ends and the day it starts", () => {
-    expect(new Date(lockInstant("2026-11-01", tz)).toISOString()).toBe("2026-11-02T05:15:00.000Z");
-    expect(new Date(lockInstant("2026-03-08", tz)).toISOString()).toBe("2026-03-09T04:15:00.000Z");
+    expect(new Date(lockInstant("2026-11-01", tz)).toISOString()).toBe("2026-11-02T08:05:00.000Z");
+    expect(new Date(lockInstant("2026-03-08", tz)).toISOString()).toBe("2026-03-09T07:05:00.000Z");
+  });
+  it("crosses month and year ends", () => {
+    expect(new Date(lockInstant("2026-10-31", tz)).toISOString()).toBe("2026-11-01T07:05:00.000Z");
+    expect(new Date(lockInstant("2026-12-31", tz)).toISOString()).toBe("2027-01-01T08:05:00.000Z");
   });
   it("works east of UTC and at UTC", () => {
     expect(new Date(zonedInstant("2026-10-21", 21 * 60 + 15, "Pacific/Kiritimati")).toISOString()).toBe("2026-10-21T07:15:00.000Z");
     expect(new Date(zonedInstant("2026-10-21", 21 * 60 + 15, "UTC")).toISOString()).toBe("2026-10-21T21:15:00.000Z");
+    expect(new Date(lockInstant("2026-10-21", "UTC")).toISOString()).toBe("2026-10-22T00:05:00.000Z");
   });
-  it("ends the game at 9:00 PM and locks 15 minutes later", () => {
-    expect(GAME_END_LABEL).toBe("9:00 PM");
-    expect(LOCK_TIME_LABEL).toBe("9:15 PM");
-    // Same day, same zone: the lock is always exactly 15 minutes after the game window shuts.
-    for (const date of ["2026-10-21", "2026-11-02", "2026-03-08"]) {
-      expect(lockInstant(date, tz) - gameEndInstant(date, tz)).toBe(15 * 60_000);
+  it("ends the game at midnight and locks 5 minutes later", () => {
+    expect(GAME_END_LABEL).toBe("12:00 AM");
+    expect(LOCK_TIME_LABEL).toBe("12:05 AM");
+    expect(new Date(gameEndInstant("2026-11-10", tz)).toISOString()).toBe("2026-11-11T08:00:00.000Z");
+    // The lock is always exactly 5 minutes after the game window shuts, DST days included.
+    for (const date of ["2026-10-21", "2026-11-01", "2026-11-02", "2026-03-08"]) {
+      expect(lockInstant(date, tz) - gameEndInstant(date, tz)).toBe(5 * 60_000);
     }
   });
 });

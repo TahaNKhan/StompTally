@@ -51,13 +51,13 @@ try {
     const requests = []; page.on("request", (r) => requests.push(new URL(r.url()).pathname));
     await page.goto(`${BASE}/`, { waitUntil: "load" });
 
-    // The badge belongs to Today, which is the second card; the first is Yesterday, already locked
-    // and showing the static lock time instead. Scope to Today by its label.
+    // The badge belongs to Today. Between midnight and the 12:05 AM lock a Yesterday card sits above
+    // it, showing the static lock time instead. Scope to Today by its label.
     const todayCard = page.locator("section.card").filter({ hasText: "TODAY" });
     const header = (await todayCard.innerText()).split("\n").slice(0, 4).join(" / ");
     assert.match(header, /Live · ends in|Final in|Waiting for final counts/, `the open day should show the live badge, header read "${header}"`);
 
-    // The day has two instants: the game window shuts at 9:00 PM and the day locks at 9:15. Which
+    // The day has two instants: the game window shuts at midnight and the day locks at 12:05 AM. Which
     // one the badge counts to depends on the real time, and once the lock has passed there is no
     // countdown left to show -- so this script passes at any hour, checking whichever state it lands in.
     const badge = page.locator("time");

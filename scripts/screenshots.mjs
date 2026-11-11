@@ -20,8 +20,6 @@ const TZ = "America/Los_Angeles";
 const SESSION_ID = "screenshot-session";
 const OUT = process.env.SHOTS_OUT || new URL("../screenshots/", import.meta.url).pathname;
 const SCHEME = process.env.SHOTS_SCHEME === "light" ? "light" : "dark";
-// SHOTS_AFTER_LOCK=1 seeds a lock for today, so Today shows the 21:15-to-midnight state (locked, skips open).
-const AFTER_LOCK = process.env.SHOTS_AFTER_LOCK === "1";
 
 const people = [
   { id: "00000000-0000-4000-8000-000000000001", name: "Alex Rivera", email: "alex@example.com", stompers: "alexwalks", base: 13200 },
@@ -76,14 +74,9 @@ function buildSeed(now) {
     insert("day_results", [GROUP, date, min, JSON.stringify(losers.map((l) => l.id)), losers.length ? "penalty" : "no_loser", now]);
     for (const l of losers) { insert("penalties", [GROUP, l.id, date, 500]); penaltyTotals[date.slice(0, 7)] = (penaltyTotals[date.slice(0, 7)] ?? 0) + 1; }
   }
-  // Days lock at 21:15, so yesterday is always final. With SHOTS_AFTER_LOCK, today is locked too.
+  // Days lock at 00:05 the next morning, so yesterday is seeded final and today stays open.
   const todaySteps = [8120, 6340, 7210, 9040, 3980];
   people.forEach((p, i) => insert("step_entries", [p.id, today, todaySteps[i] + (i === 1 ? 0.5 : 0), "stompers", now - 20 * 60_000, todaySteps[i] - 300, todaySteps[i] + (i === 1 ? 0.5 : 0), `fake-game-${today}`, now - 20 * 60_000]));
-  if (AFTER_LOCK) {
-    const lowest = people[todaySteps.indexOf(Math.min(...todaySteps))];
-    insert("day_results", [GROUP, today, Math.min(...todaySteps), JSON.stringify([lowest.id]), "penalty", now - 25 * 60_000]);
-    insert("penalties", [GROUP, lowest.id, today, 500]);
-  }
   rows.push(`INSERT INTO settlements VALUES ('${GROUP}', '${monthStart.slice(0, 7)}', 'Paid for tacos', ${now - 5 * 864e5});`);
   rows.push(`INSERT INTO manual_step_entries (group_id,user_id,actor_id,date,steps,previous_steps,previous_source,raw_steps,game_steps,created_at) VALUES ('${GROUP}','${me.id}','${me.id}','${today}',8400,8120,'stompers',7820,8120,${now - 3_600_000});`);
   rows.push(`INSERT INTO invites VALUES ('inv-1','${GROUP}','friend@example.com','hash-1','${me.id}',${now + 6 * 864e5},NULL,NULL,${now - 3_600_000});`);

@@ -7,7 +7,7 @@ import { db, formAction, memberOr, origin, rateLimit, requireMember, sid } from 
 import { createInvite, recordSteps, removeMember, revokeInvite, updateGroup } from "../lib/service";
 import { inviteEmail, sendMail } from "../lib/mail.server";
 import { env } from "cloudflare:workers";
-import { addDays } from "../lib/dates";
+import { addDays, LOCK_TIME_LABEL } from "../lib/dates";
 import { syncStompers } from "../lib/stompers.server";
 import { loadGroupAdmin } from "../lib/pages";
 
@@ -176,7 +176,7 @@ export default function GroupPage() {
             <ErrorNote error={settings.data && "error" in settings.data ? settings.data.error : null} />
           </div>
         </settings.Form>
-        <p className="mt-4 text-xs text-muted">Lowest steps under the goal pays. Ties: everyone tied pays. No sync = 0 steps. The game ends at 9:00 PM; days lock at 9:15 PM. Skips stay open until midnight.</p>
+        <p className="mt-4 text-xs text-muted">Lowest steps under the goal pays. Ties: everyone tied pays. No sync = 0 steps. The game ends at midnight; each day locks at {LOCK_TIME_LABEL} the next morning. Skips stay open until the lock.</p>
       </section>
     </div>
   );

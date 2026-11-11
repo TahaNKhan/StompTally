@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { action } from "../routes/me";
 import { ErrorNote, fmtSteps } from "./ui";
 import { PendingButton } from "./pending";
-import { formatDay } from "../lib/dates";
+import { formatDay, LOCK_TIME_LABEL } from "../lib/dates";
 import { useOnline } from "./offline-bar";
 import { WRITE_BLOCKED_MESSAGE, writesAllowed } from "../lib/offline";
 
@@ -72,7 +72,7 @@ export function LogSteps({ today, yesterday, myToday, myYesterday }: { today: st
       {saved && <p className="mt-2 text-xs text-lime">✓ Saved</p>}
       {!online && <p className="mt-2 text-xs text-amber">{WRITE_BLOCKED_MESSAGE}</p>}
       <ErrorNote error={f.data && "error" in f.data ? f.data.error : null} />
-      {yesterday && <p className="mt-2 text-xs text-muted">The game ends at 9:00 PM; days lock at 9:15 PM. Update anytime before then.</p>}
+      {yesterday && <p className="mt-2 text-xs text-muted">The game ends at midnight; each day locks at {LOCK_TIME_LABEL} the next morning. Update anytime before then.</p>}
     </section>
   );
 }

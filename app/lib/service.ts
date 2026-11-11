@@ -4,7 +4,7 @@ import type { Db } from "./db";
 import { stmt } from "./db";
 import { isEmail, newId, normalizeEmail, randomToken, sha256 } from "./crypto";
 import { computeDay, canClaimSkip } from "./rules";
-import { addDays, addMonths, canChangeSkip, daysInMonth, isDate, lastFinalizableDate, localDate, monthOf } from "./dates";
+import { addDays, addMonths, canChangeSkip, daysInMonth, isDate, lastFinalizableDate, localDate, LOCK_TIME_LABEL, monthOf } from "./dates";
 import { activeOn, buildMonth, type ClaimRow, type EntryRow, type MemberRow, type PenaltyRow, type ResultRow } from "./views";
 
 const HOUR = 3600_000;
@@ -273,7 +273,7 @@ async function isFinalized(db: Db, groupId: string, date: string) {
 
 /**
  * Record steps for a day (the Stompers number, after power-ups).
- * Self-reports: today until it finalizes at 9:15 PM (or yesterday, if its lock is late). Never a finalized day.
+ * Self-reports: today, or yesterday until it finalizes at 12:05 AM (later if its lock is delayed). Never a finalized day.
  * Admin edits can touch any past day; editing a finalized day re-finalizes it.
  */
 export async function recordSteps(
@@ -334,7 +334,7 @@ export async function claimSkip(db: Db, user: User, date: string, now = Date.now
   if (!m) throw new AppError(403, "Not in a group");
   const { group } = m;
   if (!isDate(date)) throw new AppError(400, "Bad date");
-  if (!canChangeSkip(date, new Date(now), group.timezone)) throw new AppError(409, "Skips close at midnight. You can only skip today.");
+  requireOpenSkip(date, now, group);
   if (date < m.joinedDate) throw new AppError(400, "You weren't in the group yet");
   const used = await db.first<{ n: number }>(
     "SELECT COUNT(*) AS n FROM skip_claims WHERE group_id = ? AND user_id = ? AND substr(date, 1, 7) = ?",
@@ -349,25 +349,27 @@ export async function claimSkip(db: Db, user: User, date: string, now = Date.now
     stmt("INSERT INTO skip_claims (group_id, user_id, date, status, created_at) VALUES (?, ?, ?, 'pending', ?)", group.id, user.id, date, now),
     audit(group.id, user.id, "skip.claim", { date }, now),
   ]);
-  await refinalizeIfLocked(db, group, date, now);
 }
 
-/** A skip changed after the 9:15 PM lock: recompute who pays from the frozen steps. */
-async function refinalizeIfLocked(db: Db, group: Group, date: string, now: number) {
-  if (await isFinalized(db, group.id, date)) await finalizeDay(db, group, date, now, { force: true });
+/**
+ * Skips for a day open at its start and close at its lock, so a skip never has to recompute a
+ * locked day: everyone sees the final counts and the final skips together.
+ */
+function requireOpenSkip(date: string, now: number, group: Group) {
+  if (canChangeSkip(date, new Date(now), group.timezone)) return;
+  if (date > localDate(new Date(now), group.timezone)) throw new AppError(409, "You can't skip a future day.");
+  throw new AppError(409, `Skips close when the day locks at ${LOCK_TIME_LABEL}. That day is final.`);
 }
 
 export async function cancelSkip(db: Db, user: User, date: string, now = Date.now()) {
   const m = await getMembership(db, user.id);
   if (!m) throw new AppError(403, "Not in a group");
   if (!isDate(date)) throw new AppError(400, "Bad date");
-  if (!canChangeSkip(date, new Date(now), m.group.timezone)) throw new AppError(409, "Skips close at midnight. That day is final.");
-  // Until midnight a used ('consumed') skip can be undone too; the lock is recomputed below.
+  requireOpenSkip(date, now, m.group);
   await db.batch([
     stmt("DELETE FROM skip_claims WHERE group_id = ? AND user_id = ? AND date = ?", m.group.id, user.id, date),
     audit(m.group.id, user.id, "skip.cancel", { date }, now),
   ]);
-  await refinalizeIfLocked(db, m.group, date, now);
 }
 
 // ───────────────────────────── finalize ─────────────────────────────

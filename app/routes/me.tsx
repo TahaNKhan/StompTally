@@ -10,6 +10,7 @@ import { ThemeSwitch } from "../components/theme-switch";
 import { AvatarUpload } from "../components/avatar-upload";
 import { deleteAvatar, saveAvatar } from "../lib/avatars";
 import { loadMe } from "../lib/pages";
+import { LOCK_TIME_LABEL } from "../lib/dates";
 import { linkStompers, unlinkStompers, syncStompers } from "../lib/stompers.server";
 import { rateLimit } from "../lib/http.server";
 
@@ -112,8 +113,8 @@ export default function Me() {
           <li>👟 Link <b>Stompers</b> to pull both counts every 30 minutes. The higher count wins. Log manual changes here; each save is kept in the change log.</li>
           <li>👟 Lowest under {rules.threshold.toLocaleString("en-US")} each day owes <b className="text-lime">${rules.penalty / 100}</b>. Ties: everyone tied pays.</li>
           <li>🫥 Didn't log? That counts as 0.</li>
-          <li>🛡️ {rules.skips} skips a month. Claim one by midnight, even after the 9:15 PM lock. It's only used up if it saves you.</li>
-          <li>🔒 The game ends at 9:00 PM; each day locks at 9:15 PM. After that only the admin can change steps.</li>
+          <li>🛡️ {rules.skips} skips a month. Claim one any time before the day locks. It's only used up if it saves you.</li>
+          <li>🔒 The game ends at midnight; each day locks at {LOCK_TIME_LABEL} the next morning. After that only the admin can change steps.</li>
         </ul>
       </section>
 

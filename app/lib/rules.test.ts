@@ -106,28 +106,35 @@ describe("dates", () => {
     // 2026-10-17 05:00 UTC = Oct 16 22:00 PDT
     expect(localDate(new Date("2026-10-17T05:00:00Z"), tz)).toBe("2026-10-16");
   });
-  it("finalize cutoff is 21:15 the same day, after the 21:00 game ends", () => {
-    // Oct 17 21:00 PDT, the moment the game window shuts: still not final, the last counts are due
-    expect(lastFinalizableDate(new Date("2026-10-18T04:00:00Z"), tz)).toBe("2026-10-16");
-    // Oct 17 21:14 PDT (04:14 UTC Oct 18) -> Oct 17 not yet final
-    expect(lastFinalizableDate(new Date("2026-10-18T04:14:00Z"), tz)).toBe("2026-10-16");
-    // Oct 17 21:15 PDT -> Oct 17 final
-    expect(lastFinalizableDate(new Date("2026-10-18T04:15:00Z"), tz)).toBe("2026-10-17");
-    // Still Oct 17 just before midnight, and Oct 17 the next morning
-    expect(lastFinalizableDate(new Date("2026-10-18T06:59:00Z"), tz)).toBe("2026-10-17");
-    expect(lastFinalizableDate(new Date("2026-10-18T16:00:00Z"), tz)).toBe("2026-10-17");
+  it("finalize cutoff is 00:05 the next morning, after the game ends at midnight", () => {
+    // Oct 17 21:15 PDT, the old lock: the game is still on, nothing past Oct 16 is final
+    expect(lastFinalizableDate(new Date("2026-10-18T04:15:00Z"), tz)).toBe("2026-10-16");
+    // Oct 18 00:00 PDT, the moment the game ends: still not final, the last counts are due
+    expect(lastFinalizableDate(new Date("2026-10-18T07:00:00Z"), tz)).toBe("2026-10-16");
+    // Oct 18 00:04 PDT -> Oct 17 not yet final
+    expect(lastFinalizableDate(new Date("2026-10-18T07:04:00Z"), tz)).toBe("2026-10-16");
+    // Oct 18 00:05 PDT -> Oct 17 final
+    expect(lastFinalizableDate(new Date("2026-10-18T07:05:00Z"), tz)).toBe("2026-10-17");
+    // Still only Oct 17 through Oct 18 evening
+    expect(lastFinalizableDate(new Date("2026-10-19T06:59:00Z"), tz)).toBe("2026-10-17");
   });
   it("finalize cutoff follows daylight saving", () => {
-    // Nov 2 21:15 PST is 05:15 UTC Nov 3, an hour later than in PDT
-    expect(lastFinalizableDate(new Date("2026-11-03T05:14:00Z"), tz)).toBe("2026-11-01");
-    expect(lastFinalizableDate(new Date("2026-11-03T05:15:00Z"), tz)).toBe("2026-11-02");
+    // Nov 3 00:05 PST is 08:05 UTC, an hour later than in PDT
+    expect(lastFinalizableDate(new Date("2026-11-03T08:04:00Z"), tz)).toBe("2026-11-01");
+    expect(lastFinalizableDate(new Date("2026-11-03T08:05:00Z"), tz)).toBe("2026-11-02");
+    // Nov 1 is 25 hours long (PDT -> PST): it locks at Nov 2 00:05 PST = 08:05 UTC
+    expect(lastFinalizableDate(new Date("2026-11-02T08:04:00Z"), tz)).toBe("2026-10-31");
+    expect(lastFinalizableDate(new Date("2026-11-02T08:05:00Z"), tz)).toBe("2026-11-01");
   });
-  it("skips stay open until local midnight, and only for that day", () => {
-    // Oct 17 23:59 PDT
+  it("skips stay open until the 00:05 lock, and never for a future day", () => {
+    // Oct 17 23:59 PDT and Oct 18 00:04 PDT: Oct 17 can still be skipped
     expect(canChangeSkip("2026-10-17", new Date("2026-10-18T06:59:00Z"), tz)).toBe(true);
-    // Oct 18 00:00 PDT
-    expect(canChangeSkip("2026-10-17", new Date("2026-10-18T07:00:00Z"), tz)).toBe(false);
+    expect(canChangeSkip("2026-10-17", new Date("2026-10-18T07:04:00Z"), tz)).toBe(true);
+    // Oct 18 00:05 PDT: Oct 17 locked, skips closed
+    expect(canChangeSkip("2026-10-17", new Date("2026-10-18T07:05:00Z"), tz)).toBe(false);
+    // Oct 18 can't be skipped from Oct 17, but can from its own first minute
     expect(canChangeSkip("2026-10-18", new Date("2026-10-18T06:59:00Z"), tz)).toBe(false);
+    expect(canChangeSkip("2026-10-18", new Date("2026-10-18T07:00:00Z"), tz)).toBe(true);
   });
   it("addDays crosses months", () => {
     expect(addDays("2026-10-31", 1)).toBe("2026-11-01");
