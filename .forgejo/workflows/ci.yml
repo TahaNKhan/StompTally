@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  PATH: /home/taha/.local/node/bin:/usr/local/bin:/usr/bin:/bin
+
+jobs:
+  check:
+    runs-on: host
+    steps:
+      - name: Check out
+        run: |
+          git init -q .
+          git -c http.extraHeader="Authorization: token ${{ github.token }}" \
+            fetch -q --depth 1 "${{ github.server_url }}/${{ github.repository }}.git" "${{ github.sha }}"
+          git checkout -q --detach FETCH_HEAD
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
